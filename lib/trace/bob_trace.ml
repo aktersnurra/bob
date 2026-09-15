@@ -185,10 +185,18 @@ let replay ?(config = Bob_control.default_config)
           obs := Bob_obs.mark !obs ~at:now Bob_obs.Stt_first_partial
       | Bob_events.Utterance _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Stt_final
       | _ -> ());
-      (* Reduce, decide, execute. This is SPEC section 33's direction. *)
+      (* Reduce, decide, execute. This is SPEC section 33's direction.
+
+         The controller decides against the world as it was WHEN THE EVENT
+         ARRIVED, not after the event has been folded in. "Was Bob speaking
+         when this speech started?" is a question about the prior state; asking
+         it of the post-apply world makes Speech_started interrupt itself. *)
+      let world_before = !world in
       world := Bob_world.apply !world e;
       workspace := Bob_workspace.apply !workspace e;
-      let ds = Bob_control.decide ~config ~now ~world:!world ~workspace:!workspace e in
+      let ds =
+        Bob_control.decide ~config ~now ~world:world_before ~workspace:!workspace e
+      in
       List.iter (execute ~now) ds;
       world := Bob_world.expire ~now !world;
       workspace := Bob_workspace.tick ~now !workspace)

@@ -1,7 +1,11 @@
 # SPEC section 27 worked example: Gustaf asks Bob a question from the left.
+#
+# Ordering matters: the speaker stops talking (speech_ended) and only THEN does
+# the final transcript resolve (utterance). A trace with utterance before
+# speech_ended produces negative speech-end -> stt-final spans.
 t=0.000 speech_started doa=-31 confidence=0.8
 t=0.040 person_entered track=7 bearing=-29
 t=0.220 person_identified track=7 person=gustaf confidence=0.93
 t=0.400 partial_utterance text="Bob where..."
-t=1.500 utterance speaker=gustaf text="Bob where did I put the screwdriver?"
-t=1.520 speech_ended
+t=1.500 speech_ended
+t=1.680 utterance speaker=gustaf text="Bob where did I put the screwdriver?"

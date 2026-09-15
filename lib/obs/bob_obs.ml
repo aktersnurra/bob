@@ -57,10 +57,20 @@ let over_budget t =
       | _ -> None)
     budgets
 
+(* A negative span means the marks arrived out of order -- e.g. a trace whose
+   final transcript precedes speech_ended. That is a defect in the input, not a
+   measurement, so surface it instead of printing it as a plausible number. *)
+let out_of_order t =
+  List.filter_map
+    (fun (name, v) -> match v with Some ms when ms < 0. -> Some (name, ms) | _ -> None)
+    (report t)
+
 let pp_report fmt t =
   List.iter
     (fun (name, v) ->
       match v with
+      | Some ms when ms < 0. ->
+          Format.fprintf fmt "  %-34s %7s  (marks out of order)@." name "INVALID"
       | Some ms -> Format.fprintf fmt "  %-34s %7.1f ms@." name ms
       | None -> Format.fprintf fmt "  %-34s %7s@." name "-")
     (report t);
