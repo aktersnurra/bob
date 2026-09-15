@@ -1,0 +1,26 @@
+# Runtime state — NEVER commit. Contains face embeddings, reference images,
+# episode transcripts and per-person profiles for real people incl. children.
+bob-data/
+*.db
+*.db-shm
+*.db-wal
+
+# Models
+models/
+*.gguf
+*.onnx
+*.bin
+
+# Traces may contain transcripts
+traces/
+
+# Secrets
+.env
+*.key
+
+# Build
+_build/
+_opam/
+__pycache__/
+.venv/
+*.install
