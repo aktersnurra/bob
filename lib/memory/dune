@@ -1,0 +1,3 @@
+(library
+ (name bob_memory)
+ (libraries bob_types bob_events sqlite3 unix))

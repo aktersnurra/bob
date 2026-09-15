@@ -1,4 +1,5 @@
 (tests
- (names test_types test_events test_world test_workspace test_control test_audit)
- (libraries bob_types bob_events bob_world bob_workspace bob_control alcotest
-   qcheck-core qcheck-alcotest yojson))
+ (names test_types test_events test_world test_workspace test_control test_audit
+   test_memory)
+ (libraries bob_types bob_events bob_world bob_workspace bob_control bob_memory
+   alcotest qcheck-core qcheck-alcotest yojson unix))
