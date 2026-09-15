@@ -20,6 +20,7 @@ traces/
 
 # Build
 _build/
+_opam
 _opam/
 __pycache__/
 .venv/
