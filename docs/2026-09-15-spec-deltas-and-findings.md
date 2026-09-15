@@ -178,9 +178,26 @@ Python with confirmed wheels via `uv`; do not inherit the system interpreter.
 similarity over a few hundred 512-D vectors is microseconds. No index is
 needed. Recorded so this is not later "fixed" by adding FAISS.
 
+### 4.1 OxCaml is not used
+
+The dev machine's active opam switch was `5.2.0+ox` (OxCaml), and the first
+toolchain check was made against it by accident rather than by decision.
+
+**Bob uses the stock `default` switch (OCaml 5.5.1).** OxCaml's features --
+unboxed types, modes, data-race-free parallelism -- map to none of Bob's
+workload: embedding comparison is a few hundred 512-D vectors in a Python
+worker (section 4), concurrency is IO-bound Eio fibers rather than CPU-parallel
+domains, and the reducers allocate small records at event rate. Meanwhile
+OxCaml would pin the project to OCaml 5.2 (stock is 5.5.1), add
+package-availability risk for later phases, and complicate NUC provisioning.
+
+All Phase 0 dependencies were installed and verified on the stock switch,
+including the yojson 2.2.2 -> 3.0.0 major bump, which required no code change.
+
 ## 5. Decisions taken in session
 
 - Repo at `vibe/bob/`, jj, master branch.
 - `SPEC.md` canonical; this file records deltas and findings.
 - Phase 0 covers the full loop on fakes, plus a benchmark harness so model
   selection is evidence-based before Phase 2.
+- Stock OCaml switch, not OxCaml (section 4.1).
