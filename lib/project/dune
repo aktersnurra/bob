@@ -1,0 +1,3 @@
+(library
+ (name bob_project)
+ (libraries bob_types bob_events bob_world bob_workspace bob_memory))
