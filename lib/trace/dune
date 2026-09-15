@@ -1,0 +1,4 @@
+(library
+ (name bob_trace)
+ (libraries bob_types bob_events bob_world bob_workspace bob_control bob_memory
+   bob_project bob_capability bob_obs))

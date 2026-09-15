@@ -1,5 +1,7 @@
 (tests
  (names test_types test_events test_world test_workspace test_control test_audit
-   test_memory test_project test_audit_memory test_obs)
+   test_memory test_project test_audit_memory test_obs test_trace)
  (libraries bob_types bob_events bob_world bob_workspace bob_control bob_memory
-   bob_project bob_capability bob_obs alcotest qcheck-core qcheck-alcotest yojson unix))
+   bob_project bob_capability bob_obs bob_trace alcotest qcheck-core
+   qcheck-alcotest yojson unix)
+ (deps (glob_files fixtures/*.trace)))
