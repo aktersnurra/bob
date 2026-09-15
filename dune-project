@@ -5,6 +5,7 @@
 (package
  (name bob)
  (synopsis "Bob — a small curious desktop robot")
+ (allow_empty)
  (depends
   (ocaml (>= 5.2))
   dune
