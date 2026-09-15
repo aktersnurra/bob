@@ -1,4 +1,4 @@
 (tests
- (names test_types test_events test_world)
- (libraries bob_types bob_events bob_world alcotest qcheck-core qcheck-alcotest
-   yojson))
+ (names test_types test_events test_world test_workspace)
+ (libraries bob_types bob_events bob_world bob_workspace alcotest qcheck-core
+   qcheck-alcotest yojson))
