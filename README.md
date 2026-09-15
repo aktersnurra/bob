@@ -11,10 +11,33 @@ See [SPEC.md](SPEC.md) for the authoritative design.
 
 ## Status
 
-**Phase 0 — not yet started.** No hardware ordered. No code written.
+**Phase 0 complete.** Cognitive core built and tested on fakes. 101 tests
+across 12 suites. No hardware ordered; no hardware code written.
+
+Try it:
+
+```bash
+opam switch link default     # once per working directory
+opam exec -- dune test
+opam exec -- dune exec bin/bob_replay.exe -- test/fixtures/screwdriver.trace -v
+```
+
+The replay drives the real world reducer, workspace, controller, context
+projector and a fake brain from a recorded event trace. Bob's orientation
+decision fires at t=0.000s, 1.68 seconds before the utterance is final.
+
+### What Phase 0 does NOT establish
 
 All physical capability claims are **PENDING** until measured on real
 hardware. A simulation never verifies a physical capability.
+
+- No latency claim about real hardware. Every number in the replay report is
+  trace-derived — it is the timestamp the fixture asserts, not a measurement.
+- No claim that whisper, SCRFD or CVLFace run fast enough on the target NUC.
+  See [bench/README.md](bench/README.md) for what must be measured there.
+- No claim about recognition accuracy, Swedish or English quality, or
+  discriminating between siblings.
+- Nothing moved. No audio was captured or played. No model was called.
 
 - [Spec deltas and verified findings](docs/2026-09-15-spec-deltas-and-findings.md)
 
