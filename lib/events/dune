@@ -1,0 +1,3 @@
+(library
+ (name bob_events)
+ (libraries bob_types yojson))
