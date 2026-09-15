@@ -1,0 +1,3 @@
+(library
+ (name bob_obs)
+ (libraries bob_types bob_events))
