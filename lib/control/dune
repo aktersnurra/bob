@@ -1,0 +1,3 @@
+(library
+ (name bob_control)
+ (libraries bob_types bob_events bob_world bob_workspace))
