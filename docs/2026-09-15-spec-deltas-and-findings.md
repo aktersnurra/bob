@@ -183,12 +183,12 @@ needed. Recorded so this is not later "fixed" by adding FAISS.
 The dev machine's active opam switch was `5.2.0+ox` (OxCaml), and the first
 toolchain check was made against it by accident rather than by decision.
 
-**Bob uses the stock `default` switch (OCaml 5.5.1).** OxCaml's features --
+**Bob uses the stock `default` switch (OCaml 5.4.1).** OxCaml's features --
 unboxed types, modes, data-race-free parallelism -- map to none of Bob's
 workload: embedding comparison is a few hundred 512-D vectors in a Python
 worker (section 4), concurrency is IO-bound Eio fibers rather than CPU-parallel
 domains, and the reducers allocate small records at event rate. Meanwhile
-OxCaml would pin the project to OCaml 5.2 (stock is 5.5.1), add
+OxCaml would pin the project to OCaml 5.2 (stock is 5.4.1), add
 package-availability risk for later phases, and complicate NUC provisioning.
 
 All Phase 0 dependencies were installed and verified on the stock switch,

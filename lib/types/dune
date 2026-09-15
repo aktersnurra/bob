@@ -1,0 +1,3 @@
+(library
+ (name bob_types)
+ (libraries mtime mtime.clock.os ptime uuidm yojson))
