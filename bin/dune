@@ -1,0 +1,5 @@
+(executable
+ (name bob_replay)
+ (public_name bob-replay)
+ (libraries bob_types bob_events bob_world bob_workspace bob_control bob_memory
+   bob_project bob_capability bob_obs bob_trace cmdliner))
