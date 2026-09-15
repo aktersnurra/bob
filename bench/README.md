@@ -1,11 +1,34 @@
 # Bob benchmark harness
 
-**Status: specification only. Nothing here has been run.**
+**Status: scripts written and dry-run tested. No real measurement taken.**
 
-The NUC is not yet purchased. These numbers decide whisper model selection
-and whether SPEC section 17's budget is reachable, so they must be measured
-on the real target under realistic load — not on the dev box, which has an
-RTX 2070 and would flatter every result.
+These numbers decide whisper model selection and whether SPEC section 17's
+budget is reachable, so they must be measured on the target NUC under
+realistic load — not on the dev box, whose RTX 2070 would flatter every
+result. `run-bench.sh` prints a warning in its own report if it detects an
+NVIDIA GPU, for exactly this reason.
+
+## Running it
+
+On the **NUC**, from a checkout of this repo:
+
+```bash
+./bench/setup-nuc.sh              # whisper.cpp CPU + OpenVINO builds, models
+./bench/record-fixtures.sh        # ten Swedish + ten English clips, your voice
+./bench/run-bench.sh ~/bob-bench --load
+```
+
+`setup-nuc.sh` is idempotent and prints exact instructions if OpenVINO or the
+Intel compute runtime are missing. `run-bench.sh` writes a timestamped
+markdown report to `~/bob-bench/results/`.
+
+`--load` adds a pass with busy loops on half the cores, standing in for your
+other applications. **That is the pass that decides anything** — a model that
+meets the budget on an idle box and misses it under load has not passed.
+
+The fixtures are your own voice in your own room, with Swedish diacritics
+intact, because word error rate on a public corpus says nothing about whether
+Bob understands *you* at a desk.
 
 ## What to measure
 
