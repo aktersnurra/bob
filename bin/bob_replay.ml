@@ -13,12 +13,13 @@ let run trace_path verbose =
           (fun e -> Printf.printf "  %8.3fs  %s\n" (Bob_events.at e |> Time.to_ms |> fun m -> m /. 1000.) (Bob_events.kind e))
           evs;
         print_newline ());
-      let brain, last_request =
-        Bob_capability.Brain.fake ~reply:"Jag vet inte. Ska vi ta reda på det?" ()
+      let sim =
+        Bob_handler_sim.create ~start:(Bob_events.at (List.hd evs))
+          ~brain_reply:"Jag vet inte. Ska vi ta reda på det?" ()
       in
-      let body, body_log = Bob_capability.Body.fake () in
-      let tts, tts_log = Bob_capability.Tts.fake () in
-      let r = Bob_trace.replay ~brain ~body ~tts ~memory:None evs in
+      let r = ref None in
+      Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+      let r = Option.get !r in
 
       print_endline "DECISIONS";
       List.iter
@@ -30,28 +31,25 @@ let run trace_path verbose =
 
       print_endline "BODY";
       List.iter
-        (fun c ->
-          match c with
-          | Bob_capability.Body.Look p ->
-              Printf.printf "  look yaw=%.0f pitch=%.0f\n" (Angle.to_deg p.yaw)
-                (Angle.to_deg p.pitch)
-          | Bob_capability.Body.Expression e -> Printf.printf "  expression %s\n" e
-          | Bob_capability.Body.Blink -> print_endline "  blink")
-        (body_log ());
+        (fun a ->
+          match a with
+          | Bob_handler_sim.Looked (Bob_effect.Body.Bearing yaw) ->
+              Printf.printf "  look yaw=%.0f pitch=%.0f\n" (Angle.to_deg yaw) 0.
+          | Bob_handler_sim.Looked (Bob_effect.Body.Person _) -> print_endline "  look at person"
+          | Bob_handler_sim.Looked (Bob_effect.Body.Track _) -> print_endline "  look at track"
+          | Bob_handler_sim.Looked Bob_effect.Body.Neutral -> print_endline "  look neutral"
+          | _ -> ())
+        (Bob_handler_sim.actions sim);
       print_newline ();
 
       print_endline "SPEECH";
-      let spoken, stops = tts_log () in
+      let spoken =
+        List.filter_map
+          (function Bob_handler_sim.Spoke s -> Some s | _ -> None)
+          (Bob_handler_sim.actions sim)
+      in
       List.iter (fun s -> Printf.printf "  %S\n" s) spoken;
-      if stops > 0 then Printf.printf "  (interrupted %d time(s))\n" stops;
       print_newline ();
-
-      (match last_request () with
-      | Some req when verbose ->
-          print_endline "PROJECTED CONTEXT SENT TO BRAIN";
-          print_endline (req.Bob_capability.Brain.context);
-          print_newline ()
-      | _ -> ());
 
       print_endline "LATENCY (SPEC section 28)";
       Format.printf "%a" Bob_obs.pp_report r.Bob_trace.obs;

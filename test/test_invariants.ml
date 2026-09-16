@@ -77,18 +77,22 @@ let test_llm_cannot_exceed_mechanical_limits () =
 
 let test_every_brain_action_passes_through_validate () =
   (* A Say the brain proposes is only spoken if validate approves it. *)
-  let brain, _ =
-    Bob_capability.Brain.fake ~reply:(String.make (ccfg.Bob_control.max_say_chars + 1) 'x') ()
+  let sim =
+    Bob_handler_sim.create ~start:(at 0.)
+      ~brain_reply:(String.make (ccfg.Bob_control.max_say_chars + 1) 'x') ()
   in
-  let body, _ = Bob_capability.Body.fake () in
-  let tts, tts_log = Bob_capability.Tts.fake () in
   let evs =
     [ Bob_events.Utterance
         { at = at 0.; text = "hej"; speaker = Some (Person_id.v "gustaf");
           speaker_track = None; language = Some "sv" } ]
   in
-  let r = Bob_trace.replay ~brain ~body ~tts ~memory:None evs in
-  let spoken, _ = tts_log () in
+  let r = ref None in
+  Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+  let r = Option.get !r in
+  let spoken =
+    List.filter (function Bob_handler_sim.Spoke _ -> true | _ -> false)
+      (Bob_handler_sim.actions sim)
+  in
   Alcotest.(check int) "overlong speech blocked" 0 (List.length spoken);
   Alcotest.(check bool) "rejection recorded" true (List.length r.Bob_trace.errors > 0)
 

@@ -143,27 +143,29 @@ let test_episode_ids_are_unique () =
   Alcotest.(check int) "three distinct ids" 3
     (List.length (List.sort_uniq String.compare s))
 
+let count_interrupts r =
+  List.length
+    (List.filter
+       (function _, Bob_control.Interrupt_speech -> true | _ -> false)
+       r.Bob_trace.decisions)
+
 (* 9. Regression: a Speech_started must not interrupt speech that was never
    playing. The replay driver must decide against the PRE-event world, or
    applying the event first sets speech_active and Bob interrupts himself. *)
 let test_first_speech_does_not_self_interrupt () =
-  let brain, _ = Bob_capability.Brain.fake () in
-  let body, _ = Bob_capability.Body.fake () in
-  let tts, tts_log = Bob_capability.Tts.fake () in
+  let sim = Bob_handler_sim.create ~start:(at 0.) () in
   let evs =
     [ Bob_events.Speech_started
         { at = at 0.; doa = Some (Angle.deg (-31.)); confidence = Confidence.v 0.8 } ]
   in
-  let _ = Bob_trace.replay ~brain ~body ~tts ~memory:None evs in
-  let _spoken, stops = tts_log () in
-  Alcotest.(check int) "no spurious interrupt" 0 stops
+  let r = ref None in
+  Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+  Alcotest.(check int) "no spurious interrupt" 0 (count_interrupts (Option.get !r))
 
 (* 10. But a genuine barge-in MUST still interrupt: speech starts while Bob is
    already speaking. *)
 let test_real_barge_in_still_interrupts () =
-  let brain, _ = Bob_capability.Brain.fake () in
-  let body, _ = Bob_capability.Body.fake () in
-  let tts, tts_log = Bob_capability.Tts.fake () in
+  let sim = Bob_handler_sim.create ~start:(at 0.) () in
   let evs =
     [ (* Bob is speaking from t=0 *)
       Bob_events.Speech_started
@@ -172,9 +174,9 @@ let test_real_barge_in_still_interrupts () =
       Bob_events.Speech_started
         { at = at 500.; doa = Some (Angle.deg 40.); confidence = Confidence.v 0.9 } ]
   in
-  let _ = Bob_trace.replay ~brain ~body ~tts ~memory:None evs in
-  let _spoken, stops = tts_log () in
-  Alcotest.(check int) "second onset interrupts" 1 stops
+  let r = ref None in
+  Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+  Alcotest.(check int) "second onset interrupts" 1 (count_interrupts (Option.get !r))
 
 let () =
   Alcotest.run "audit"

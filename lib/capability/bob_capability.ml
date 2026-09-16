@@ -1,70 +1,42 @@
-open Bob_types
+(* Patch 002 §5, §11: types and modules express WHAT a subsystem may do;
+   effects express WHAT IT REQUESTS; handlers decide HOW it executes. OCaml
+   effects are not statically tracked, so a subsystem that must not move Bob
+   is denied the Body capability here rather than relying on it not
+   performing Look_at.
 
-(* SPEC section 1.2: small interfaces, explicit injection, swappable
-   implementations. Function records rather than functors or singletons. *)
+   §5/§11 replace the Phase 0 capability records (function-record doubles
+   with `fake` constructors) with thin authority modules: each module
+   signature names exactly the effects a subsystem may request, and its
+   implementation forwards to the typed effect wrapper. Task 7 retired the
+   `fake` constructors -- Bob_handler_sim now supersedes them for tests. *)
 
-module Clock = struct
-  type t = { now : unit -> Time.t }
-
-  (* Phase 0 is entirely deterministic: a fake clock the test drives. *)
-  let fake ~start =
-    let cur = ref start in
-    let t = { now = (fun () -> !cur) } in
-    (t, fun ms -> cur := Time.of_ms ms)
+module type CONVERSATION_CAPABILITIES = sig
+  val recall : Bob_effect.Memory.query -> Bob_effect.Memory.item list
+  val think : Bob_effect.Brain.request -> Bob_effect.Brain.response
+  val speak : Bob_effect.Speech.stream -> (unit, Bob_effect.Speech.error) result
 end
 
-module Brain = struct
-  type request = {
-    context : string;
-    utterance : string;
-    speaker : Person_id.t option;
-  }
-
-  type response = { actions : Bob_control.action list }
-  type t = { think : request -> (response, string) result }
-
-  (* Returns a fixed reply; records what it was asked so tests can assert on
-     the projected context. *)
-  let fake ?(reply = "Jag vet inte. Ska vi ta reda på det?") () =
-    let last = ref None in
-    let think (r : request) =
-      last := Some r;
-      Ok { actions = [ Bob_control.Say reply ] }
-    in
-    ({ think }, fun () -> !last)
-
-  let failing ~message = { think = (fun _ -> Error message) }
+module Conversation_with_body : CONVERSATION_CAPABILITIES = struct
+  let recall = Bob_effect.Memory.recall
+  let think = Bob_effect.Brain.think
+  let speak = Bob_effect.Speech.say
 end
 
-module Body = struct
-  type command =
-    | Look of { yaw : Angle.t; pitch : Angle.t }
-    | Expression of string
-    | Blink
-
-  type t = { send : command -> (unit, string) result }
-
-  let fake () =
-    let log = ref [] in
-    ({ send = (fun c -> log := c :: !log; Ok ()) }, fun () -> List.rev !log)
+(* A subsystem denied Body cannot move Bob even though the effect exists
+   process-wide: its own module signature simply has no way to request
+   Look_at. *)
+module type PERCEPTION_CAPABILITIES = sig
+  val identify : Bob_effect.Identity.request -> Bob_effect.Identity.result
 end
 
-module Tts = struct
-  type t = { speak : string -> (unit, string) result; stop : unit -> unit }
-
-  let fake () =
-    let spoken = ref [] in
-    let stopped = ref 0 in
-    ( { speak = (fun s -> spoken := s :: !spoken; Ok ());
-        stop = (fun () -> incr stopped) },
-      fun () -> (List.rev !spoken, !stopped) )
+module Perception : PERCEPTION_CAPABILITIES = struct
+  let identify = Bob_effect.Identity.identify
 end
 
-module Stt = struct
-  type t = { feed : bytes -> unit; final : unit -> string option }
+module type BODY_CAPABILITIES = sig
+  val look_at : Bob_effect.Body.target -> (unit, Bob_effect.Body.error) result
+end
 
-  let fake ~transcript =
-    let given = ref false in
-    { feed = (fun _ -> ());
-      final = (fun () -> if !given then None else (given := true; Some transcript)) }
+module Body_actuation : BODY_CAPABILITIES = struct
+  let look_at = Bob_effect.Body.look_at
 end

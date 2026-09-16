@@ -106,7 +106,7 @@ type result = {
 
 let replay ?(config = Bob_control.default_config)
     ?(ttl = Bob_world.default_ttl)
-    ?(ws_config = Bob_workspace.default_config) ~brain ~body ~tts ~memory evs =
+    ?(ws_config = Bob_workspace.default_config) evs =
   let world = ref (Bob_world.empty ~ttl) in
   let workspace = ref (Bob_workspace.empty ~config:ws_config) in
   let obs = ref (Bob_obs.empty ()) in
@@ -119,58 +119,71 @@ let replay ?(config = Bob_control.default_config)
     match d with
     | Bob_control.Look_at_angle p -> (
         obs := Bob_obs.mark !obs ~at:now Bob_obs.Movement_start;
-        match body.Bob_capability.Body.send (Bob_capability.Body.Look { yaw = p.yaw; pitch = p.pitch }) with
+        match Bob_effect.Body.look_at (Bob_effect.Body.Bearing p.yaw) with
         | Ok () -> ()
-        | Error m -> err ("body: " ^ m))
+        | Error e -> err ("body: " ^ Bob_effect.Body.error_to_string e))
     | Bob_control.Set_attention t -> workspace := Bob_workspace.set_attention !workspace (Some t)
-    | Bob_control.Interrupt_speech -> tts.Bob_capability.Tts.stop ()
+    | Bob_control.Interrupt_speech -> ()
     | Bob_control.Recognise _ -> ()
     | Bob_control.Preload_profile _ -> ()
     | Bob_control.Invoke_brain b ->
         obs := Bob_obs.mark !obs ~at:now Bob_obs.Llm_request;
-        let profile =
-          match (memory, b.speaker) with
-          | Some store, Some p -> Bob_memory.read_profile store p
-          | _ -> None
+        let items =
+          match b.speaker with
+          | Some person ->
+              Bob_effect.Memory.recall
+                Bob_effect.Memory.{ text = b.utterance; person = Some person }
+          | None -> []
         in
-        let episodes =
-          match (memory, b.speaker) with
-          | Some store, Some p ->
-              Bob_memory.search_episodes store ~person:p ~query:b.utterance ~limit:3
-          | _ -> []
+        let profile =
+          match items with
+          | [] -> None
+          | l -> Some (String.concat "\n" (List.map (fun i -> "- " ^ i.Bob_effect.Memory.text) l))
         in
         obs := Bob_obs.mark !obs ~at:now Bob_obs.Memory_retrieved;
         let context =
-          Bob_project.render ~now ~world:!world ~workspace:!workspace ~profile ~episodes
+          Bob_project.render ~now ~world:!world ~workspace:!workspace ~profile ~episodes:[]
         in
         let req =
-          Bob_capability.Brain.
+          Bob_effect.Brain.
             { context; utterance = b.utterance; speaker = b.speaker }
         in
-        (match brain.Bob_capability.Brain.think req with
-        | Error m -> err ("brain: " ^ m)
-        | Ok resp ->
-            obs := Bob_obs.mark !obs ~at:now Bob_obs.Llm_first_token;
-            List.iter
-              (fun a ->
-                match Bob_control.validate ~config a with
-                | Error m -> err ("rejected action: " ^ m)
-                | Ok (Bob_control.Say s) -> (
-                    obs := Bob_obs.mark !obs ~at:now Bob_obs.Tts_first_sample;
-                    match tts.Bob_capability.Tts.speak s with
-                    | Ok () -> obs := Bob_obs.mark !obs ~at:now Bob_obs.First_audio
-                    | Error m -> err ("tts: " ^ m))
-                | Ok (Bob_control.Look_at p) -> (
-                    match
-                      body.Bob_capability.Body.send
-                        (Bob_capability.Body.Look { yaw = p.yaw; pitch = p.pitch })
-                    with
-                    | Ok () -> ()
-                    | Error m -> err ("body: " ^ m))
-                | Ok (Bob_control.Ask_name _) -> ()
-                | Ok (Bob_control.Recall_more _) -> ()
-                | Ok Bob_control.Noop -> ())
-              resp.Bob_capability.Brain.actions)
+        let stream = Bob_effect.Brain.think req in
+        obs := Bob_obs.mark !obs ~at:now Bob_obs.Llm_first_token;
+        let buf = Buffer.create 128 in
+        let failed = ref None in
+        let rec drain () =
+          match Eio.Stream.take stream with
+          | Bob_effect.Brain.Text t ->
+              if Buffer.length buf > 0 then Buffer.add_char buf ' ';
+              Buffer.add_string buf t;
+              drain ()
+          | Bob_effect.Brain.Failed e -> failed := Some e
+        in
+        drain ();
+        let reply = Buffer.contents buf in
+        if reply = "" then (
+          match !failed with
+          | Some e -> err ("brain: " ^ Bob_effect.Brain.error_to_string e)
+          | None -> ())
+        else (
+          match Bob_control.validate ~config (Bob_control.Say reply) with
+          | Error m -> err ("rejected action: " ^ m)
+          | Ok (Bob_control.Say s) -> (
+              obs := Bob_obs.mark !obs ~at:now Bob_obs.Tts_first_sample;
+              let out = Eio.Stream.create 4 in
+              Eio.Stream.add out (Bob_effect.Speech.Say s);
+              Eio.Stream.add out Bob_effect.Speech.End;
+              match Bob_effect.Speech.say out with
+              | Ok () -> obs := Bob_obs.mark !obs ~at:now Bob_obs.First_audio
+              | Error e -> err ("tts: " ^ Bob_effect.Speech.error_to_string e))
+          | Ok (Bob_control.Look_at p) -> (
+              match Bob_effect.Body.look_at (Bob_effect.Body.Bearing p.yaw) with
+              | Ok () -> ()
+              | Error e -> err ("body: " ^ Bob_effect.Body.error_to_string e))
+          | Ok (Bob_control.Ask_name _) -> ()
+          | Ok (Bob_control.Recall_more _) -> ()
+          | Ok Bob_control.Noop -> ())
   in
 
   List.iter
