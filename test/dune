@@ -1,8 +1,8 @@
 (tests
  (names test_types test_events test_world test_workspace test_control test_audit
    test_memory test_project test_audit_memory test_obs test_trace test_invariants
-   test_effect test_handler_sim)
+   test_effect test_handler_sim test_runtime)
  (libraries bob_types bob_events bob_world bob_workspace bob_control bob_trace
    bob_capability bob_memory bob_project bob_obs bob_effect bob_handler_sim
-   eio_main alcotest qcheck-core qcheck-alcotest yojson unix)
+   bob_runtime eio_main alcotest qcheck-core qcheck-alcotest yojson unix)
  (deps (glob_files fixtures/*.trace)))
