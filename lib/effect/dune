@@ -1,0 +1,3 @@
+(library
+ (name bob_effect)
+ (libraries bob_types bob_control eio))

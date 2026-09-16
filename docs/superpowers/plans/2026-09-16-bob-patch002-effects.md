@@ -863,7 +863,7 @@ Create `lib/runtime/dune`:
 ```
 (library
  (name bob_runtime)
- (libraries bob_types bob_effect bob_handler_sim eio eio_main))
+ (libraries bob_types bob_effect bob_handler_sim eio eio_main unix))
 ```
 
 Create `lib/runtime/bob_runtime.ml`:
@@ -1372,7 +1372,7 @@ let pop name lst =
 
 let words s = String.split_on_char ' ' s |> List.filter (fun w -> w <> "")
 
-let handle t sw f =
+let handle t _sw f =
   match_with f ()
     { retc = (fun v -> v);
       exnc = raise;
@@ -1430,6 +1430,10 @@ let handle t sw f =
           | _ -> None) }
 
 let run t f = Eio_main.run @@ fun _env -> Eio.Switch.run @@ fun sw -> handle t sw f
+
+(* `handle` takes the switch for signature symmetry with the sim handler even
+   though replay spawns no fiber: every chunk is added to a stream sized to
+   hold all of them, so nothing blocks and nothing needs forking. *)
 ```
 
 Note the `Think` stream is sized to hold every chunk plus the terminator, so
@@ -1473,13 +1477,18 @@ Do not claim the live path works because it compiles.
 - Create: `lib/handler_live/dune`, `lib/handler_live/bob_handler_live.ml`
 - Create: `test/test_handler_live.ml`
 
-- [ ] **Step 1: Check the HTTP client dependency**
+- [ ] **Step 1: Confirm no HTTP client is needed yet**
 
-Run: `opam list --installed 2>/dev/null | grep -E "cohttp-eio|httpun-eio"`
+This task writes NO transport. The code below uses only `yojson` for request
+construction and SSE parsing, both already installed. **Do not install
+`cohttp-eio`** — an unused dependency that cannot be exercised here is exactly
+the kind of unvalidated claim correction C6 exists to prevent.
 
-If neither is installed, run:
-`opam install -y cohttp-eio` and re-check. If it fails to install, STOP and
-report — do not substitute a different HTTP stack without saying so.
+Run: `opam list --installed 2>/dev/null | grep -E "^yojson"`
+Expected: `yojson 3.0.0`. If absent, STOP and report.
+
+The HTTP client gets chosen and installed when the transport is actually
+wired, against a real endpoint.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -1570,14 +1579,12 @@ Create `lib/handler_live/dune`:
 ```
 (library
  (name bob_handler_live)
- (libraries bob_types bob_effect bob_memory yojson eio eio_main))
+ (libraries bob_effect yojson))
 ```
 
 Create `lib/handler_live/bob_handler_live.ml`:
 
 ```ocaml
-open Bob_types
-
 (* Patch 002 §7 live environment and §9: the handler owns provider, model,
    authentication, transport, retry and timeouts. Cognition knows none of it.
 
