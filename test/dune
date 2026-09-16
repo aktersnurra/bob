@@ -2,7 +2,7 @@
  (names test_types test_events test_world test_workspace test_control test_audit
    test_memory test_project test_audit_memory test_obs test_trace test_invariants
    test_effect test_handler_sim test_runtime test_cognition test_handler_replay
-   test_handler_live)
+   test_handler_live test_cancellation)
  (libraries bob_types bob_events bob_world bob_workspace bob_control bob_trace
    bob_capability bob_memory bob_project bob_obs bob_effect bob_handler_sim
    bob_runtime bob_cognition bob_handler_replay bob_handler_live eio_main alcotest

@@ -101,7 +101,18 @@ let handle t ?clock sw f =
                   (* Record incrementally, not only at the end: a speech
                      cancelled partway must leave evidence of what was
                      actually said, or Task 8 cannot tell partial from
-                     absent. *)
+                     absent.
+
+                     This body blocks (Stream.take, pace's sleep) while
+                     running as part of the effect handler itself, not as
+                     part of the resumed continuation. If a blocking call
+                     raises (e.g. Eio cancellation), letting that exception
+                     propagate normally would unwind match_with directly and
+                     bypass k entirely, so the caller's own try/with around
+                     the Speak effect would never see it. discontinue
+                     delivers the exception INTO k, at the point Speak was
+                     performed, so ordinary exception handling around the
+                     effect works as expected. *)
                   let buf = Buffer.create 64 in
                   let commit () =
                     t.actions <-
@@ -118,9 +129,13 @@ let handle t ?clock sw f =
                         commit ();
                         drain ()
                   in
-                  drain ();
-                  commit ();
-                  continue k (Ok ()))
+                  match drain () with
+                  | () ->
+                      commit ();
+                      continue k (Ok ())
+                  | exception exn ->
+                      commit ();
+                      discontinue k exn)
           | Bob_effect.Look_at target ->
               Some
                 (fun (k : (a, _) continuation) ->
