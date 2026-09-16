@@ -1961,35 +1961,58 @@ Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>"
 ## Patch 002 Definition of Done
 
 Checked against §28's twelve criteria, with corrections C6 applied.
+Ticked items were each verified by running something, not by reading code.
 
-- [ ] 1. `World.apply`, `Workspace.apply` and `Control.decide` are byte-identical to
-      their Phase 0 versions. Verify with `jj diff` across the patch.
-- [ ] 2. All cognitive time goes through `Bob_effect.Clock.now`. The reducers keep
-      their explicit `~now` parameters (C7 — converting them would violate §2 and §26).
-- [ ] 3. Brain inference is `Bob_effect.Brain.think`, backed by a handler.
-- [ ] 4. Memory recall is `Bob_effect.Memory.recall`, backed by a handler.
-- [ ] 5. Speech and body actions are effect-handled.
-- [ ] 6a. The same cognitive flow runs under sim and replay handlers. **Testable now.**
+- [x] 1. `World.apply`, `Workspace.apply` and `Control.decide` are byte-identical to
+      their Phase 0 versions. Verified: `jj diff --from ceb70c95 --to @ --stat`
+      lists no file under `lib/world`, `lib/workspace`, `lib/control`,
+      `lib/project`, `lib/memory`, `lib/types`, `lib/events` or `lib/obs`.
+- [x] 2. All cognitive time goes through `Bob_effect.Clock.now`. The reducers keep
+      their explicit `~now` parameters (C7).
+- [x] 3. Brain inference is `Bob_effect.Brain.think`, backed by a handler.
+- [x] 4. Memory recall is `Bob_effect.Memory.recall`, backed by a handler.
+- [x] 5. Speech and body actions are effect-handled.
+- [x] 6a. The same cognitive flow runs under sim and replay handlers.
 - [ ] 6b. The same flow runs under live handlers. **PENDING** — no credentials, no
-      hardware. Do not tick this because the code compiles.
-- [ ] 7. A recorded interaction replays with no hardware, network or LLM.
-- [ ] 8. Brain output passes `Control.validate` before any physical action, proven
-      by a test that proposes an invalid action and asserts nothing is emitted.
-- [ ] 9. Streaming is preserved: the sim brain handler yields chunks progressively.
-- [ ] 10. Eio cancellation propagates through blocking effects.
-- [ ] 11. Capability modules still gate authority; a subsystem denied the body
-      capability cannot move Bob.
-- [ ] 12. No generic effect framework: six effects, one `Effect.perform` site.
+      hardware. The transport is deliberately unwritten. Not ticked.
+- [x] 7. A recorded interaction replays with no hardware, network or LLM.
+- [x] 8. Brain output passes `Control.validate` before any physical action.
+      **Mutation-tested:** bypassing `validate` in `handle_utterance` makes
+      `authority (§17) / invalid action blocked` FAIL. The guard is load-bearing.
+- [x] 9. Streaming is preserved: the sim brain handler yields chunks progressively.
+- [ ] 10. Eio cancellation propagates through blocking effects. Tested against the
+      **sim handler only**; see C8, which had to be fixed for this to work at all.
+      No live transport has been cancelled. Partially met.
+- [ ] 11. Capability modules still gate authority. **NOT MET — see below.**
+- [x] 12. No generic effect framework: six effects; `Effect.perform` appears only
+      in `bob_effect.ml` (six wrappers) plus the tracing re-perform C5 requires.
 
 Plus:
 
-- [ ] `opam exec -- dune build` clean.
-- [ ] `opam exec -- dune test` green, including the 101 pre-existing tests.
-- [ ] `bob-replay` output byte-identical to before the patch.
-- [ ] A test asserts a bare `Eio.Fiber.fork` in cognitive code raises
-      `Effect.Unhandled` (C1), so the spawn helper cannot be simplified away.
-- [ ] A test asserts the trace is non-empty (C5), since the wrong handler
-      nesting fails silently.
+- [x] `opam exec -- dune build` clean.
+- [x] `opam exec -- dune test` green: **138 tests, 19 suites**, including the 101
+      pre-existing.
+- [x] `bob-replay` output byte-identical to before the patch, diffed against a
+      baseline captured before any Patch 002 work began.
+- [x] A test asserts a bare `Eio.Fiber.fork` raises `Effect.Unhandled` (C1).
+- [x] A test asserts the trace is non-empty (C5).
+
+### Criterion 11 is not met
+
+`lib/capability/bob_capability.ml` was rewritten into authority module
+signatures, and it compiles. But a repo-wide grep finds **no reference to
+`Bob_capability` from any code** — not from cognition, not from the replay
+driver, not from any test. It is linked and unused.
+
+So the claim "a subsystem denied the body capability cannot move Bob" is
+currently unexercised: nothing acquires capabilities through those modules, so
+nothing is gated by them. The mechanism is a placeholder awaiting a consumer.
+
+Meeting this properly needs cognition to take its capabilities as a module
+parameter (a functor or a record of the authority modules) so that a
+`Conversation_without_body` instantiation is *unable to name* `look_at`, plus
+a test that a body-denied subsystem cannot move Bob. That is real design work,
+not a tick.
 
 ## What this patch does NOT establish
 
