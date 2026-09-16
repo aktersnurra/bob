@@ -175,3 +175,61 @@ syntax, and a mid-stream typed failure.
   blocking effect cancels mid-stream correctly.
 - A handler body may perform Eio IO while servicing an effect, so live
   handlers can do real network calls.
+
+## C8. Effect handler bodies that block must use `discontinue` — BLOCKING
+
+Found during Task 8, root-caused and fixed there.
+
+The sim `Speak` handler blocks inside the handler body itself
+(`Eio.Stream.take`, and `pace`'s `Eio.Time.sleep`) rather than inside the
+resumed continuation. When Eio cancels one of those blocking calls, letting
+the exception propagate normally unwinds `Effect.Deep.match_with` directly
+and **bypasses the continuation `k`**. The caller's own `try ... with
+Eio.Time.Timeout` sits downstream of the `Effect.perform` call — that is,
+inside `k` — so it never runs. The exception escapes the whole test as
+`Cancelled: Eio__Time.Timeout`.
+
+**Correction:** deliver the exception into the continuation with
+`Effect.Deep.discontinue k exn`, which re-raises at the perform site where
+the caller's handler is waiting:
+
+```ocaml
+match drain () with
+| () -> commit (); continue k (Ok ())
+| exception exn -> commit (); discontinue k exn
+```
+
+`commit ()` runs on both paths so a cancelled utterance still records what
+was actually spoken.
+
+Verified by reverting the fix: `barge-in stops speech` fails with
+`[exception] Cancelled: Eio__Time.Timeout`. With the fix, all three
+cancellation tests pass.
+
+**The rule:** any handler body that blocks before calling `continue` must
+route exceptions through `discontinue`. `Think` is not affected because its
+blocking work happens in a forked producer fiber and the consumer's
+`Stream.take` runs in the caller's own continuation — but this asymmetry is
+easy to break if `Think`'s handler is ever changed to block synchronously.
+
+## C9. Two diagnostic regressions from the Task 7 migration — ACCEPTED
+
+Recorded rather than fixed; neither affects `bob-replay`'s default output,
+which is byte-identical across the migration.
+
+1. **`-v` no longer prints the projected context.** The old CLI read
+   `last_request` from the fake brain capability. `Bob_handler_sim` has no
+   equivalent accessor. `-v` still prints the EVENTS block. Restoring this
+   needs a `last_request` accessor on the sim handler.
+
+2. **The SPEECH section no longer reports "(interrupted N time(s))".** The
+   count came from the fake TTS capability's stop counter. `Interrupt_speech`
+   is now a decision record with no effect call, so there is no counter to
+   read. Task 8 establishes cancellation at the effect level; wiring
+   `Interrupt_speech` to actually cancel a speech fiber is future work.
+
+3. **`Body.target` carries no pitch.** `Bearing of Angle.t` is yaw-only, so
+   a brain-proposed `Look_at` with non-zero pitch would have that pitch
+   silently dropped. Not currently reachable: `Control.decide`'s reflex path
+   hardcodes `pitch = 0.`. Adding pitch to the vocabulary is the fix if a
+   cognitive path ever proposes one.
