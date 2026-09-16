@@ -1,0 +1,3 @@
+(library
+ (name bob_handler_live)
+ (libraries bob_effect yojson))
