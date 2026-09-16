@@ -20,22 +20,41 @@ Measured:
 | Case | Result |
 |---|---|
 | Handler outside, no fork | OK |
-| **Handler outside, perform inside forked fiber** | **`Effect.Unhandled`** |
+| **Handler outside, perform inside `Fiber.fork`** | **`Effect.Unhandled`** |
+| **Handler outside, perform inside `Fiber.both`** | **`Effect.Unhandled`** |
+| **Handler outside, perform inside `Fiber.first`** | **`Effect.Unhandled`** |
+| `Fiber.yield` under a handler | OK (creates no fiber) |
 | Handler installed inside each fiber | OK |
-| `Fiber.both`, handler inside each branch | OK |
+| `Fiber.both` with a handler inside each branch | OK |
 | Eio sleep inside our handler | OK |
 | Eio timeout inside our handler | OK (cancels correctly) |
 | Handler body performs Eio IO while servicing | OK |
 
-**Correction:** every fiber must install its own handler stack. Provide one
-spawn helper and require all forks to go through it:
+**The rule is broader than `fork`.** *Any* Eio operation that spawns a fiber
+breaks the handler chain — `fork`, `both` and `first` all do. Only `yield`
+survives, because it creates no fiber.
+
+**Correction:** every fiber installs its own handler stack. Provide one spawn
+helper and require all fiber-spawning to go through it:
 
 ```ocaml
-val Bob_runtime.fork : sw:Eio.Switch.t -> env:Handlers.t -> (unit -> unit) -> unit
+val Bob_runtime.fork : sw:Eio.Switch.t -> sim:... -> (unit -> unit) -> unit
 (* forks a fiber that has ALREADY had the handler stack installed *)
 ```
 
-A bare `Eio.Fiber.fork` in cognitive code is a bug. This is worth a test.
+A bare `Eio.Fiber.fork`, `Fiber.both` or `Fiber.first` in cognitive code is a
+bug. Worth a test.
+
+Two patterns work for a producer/consumer stream inside cognition, both
+verified:
+
+- **Fill then perform.** When the producer is local and finite, fill the
+  stream and then perform the effect. No fiber is spawned at all. The stream's
+  capacity must exceed the item count or `Stream.add` blocks forever with no
+  consumer. Prefer this.
+- **Handler in each branch.** `Fiber.both (fun () -> with_handlers a)
+  (fun () -> with_handlers b)` works, at the cost of naming the handler stack
+  at each branch.
 
 ## C2. §18 references a "Patch 001" and `bob-edge` that do not exist
 
