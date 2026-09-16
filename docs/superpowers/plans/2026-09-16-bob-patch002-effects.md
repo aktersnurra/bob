@@ -1696,7 +1696,7 @@ end
 - [ ] **Step 4: Run the tests and make sure they pass**
 
 Run: `opam exec -- dune test --force 2>&1 | grep -E "Testing|tests run|FAIL"`
-Expected: PASS — `handler_live` suite green, 6 tests.
+Expected: PASS — `handler_live` suite green, 5 tests.
 
 - [ ] **Step 5: Commit**
 
