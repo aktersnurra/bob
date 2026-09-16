@@ -48,7 +48,7 @@ Compiled and run on this machine, not reasoned about:
 | `Fiber.yield` under a handler | works (spawns no fiber) |
 | Spawn helper `bob_fork ~sw f = Eio.Fiber.fork ~sw (fun () -> with_handlers f)` | works, two concurrent fibers |
 | Fill a stream then perform (no fiber spawned) | works |
-| The `Memory`-then-`include Memory` wrapper re-export pattern | works |
+| The `Memory`-then-`include Memory` wrapper re-export pattern | **WRONG — see below** |
 | `handle t ?clock sw f` — optional before positional, forwarded twice | works |
 | Eio timeout around a blocking effect | cancels correctly |
 | Handler body performs Eio IO while servicing | works |
@@ -56,6 +56,24 @@ Compiled and run on this machine, not reasoned about:
 | Mid-stream typed failure as a `Failed` chunk | `"I think it's" then FAILED(rate_limited)` |
 | `with_sim (with_tracing f)` | trace captured |
 | `with_tracing (with_sim f)` | **captures nothing, does not error** |
+
+**Correction to the table above (found during Task 1).** The re-export row was
+wrong. A module cannot be redefined by `include`-ing itself under the same name
+in one structure — OCaml rejects it with *"Multiple definition of the module
+name"*. Re-verified with plain `ocamlopt` outside dune, so it is not a build
+artifact.
+
+The working form stages the types under a private name and exposes the public
+module once:
+
+```ocaml
+module Memory0 = struct type item = { text : string; source : string } end
+(* ... effect declarations referencing Memory0 ... *)
+module Memory = struct include Memory0 let recall = Memory_op.recall end
+```
+
+`Memory0` is file-private staging; the public surface
+(`Bob_effect.Memory.recall` and the types) is unchanged.
 
 Effect declaration syntax that compiles:
 
