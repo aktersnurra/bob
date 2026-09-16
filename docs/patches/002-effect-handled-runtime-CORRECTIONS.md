@@ -97,10 +97,22 @@ minority of real failures.
 Observability cannot live in each handler without duplicating it six times,
 and §25 forbids building a middleware framework.
 
-**Correction:** a single tracing handler installed outermost in the stack,
-which records start/end/outcome and re-performs. This is ~30 lines, not a
-framework. Note it must be *outermost* so it sees effects before the
-interpreting handler consumes them.
+**Correction:** a single tracing handler that records start/end/outcome and
+re-performs. ~30 lines, not a framework.
+
+**The nesting is counter-intuitive and easy to get backwards.** A `perform`
+inside a handler escapes *outward* to the enclosing handler, so the
+interpreting handler must be OUTSIDE and tracing INSIDE:
+
+```ocaml
+with_sim (fun () -> with_tracing clock (fun () -> cognition ()))   (* captures *)
+with_tracing clock (fun () -> with_sim (fun () -> cognition ()))   (* captures NOTHING *)
+```
+
+Measured: the first arrangement logs `Now` and `Think`; the second logs
+nothing **and does not error** — the program produces the right answer with
+silently empty traces. Wrapping the stack the intuitive way round is a silent
+failure, so this needs a test asserting the trace is non-empty.
 
 ## C6. Acceptance criterion 6 cannot be met by this patch alone
 
