@@ -5,6 +5,6 @@
    test_handler_live test_cancellation)
  (libraries bob_types bob_events bob_world bob_workspace bob_control bob_trace
    bob_capability bob_memory bob_project bob_obs bob_domain bob_effect bob_handler_sim
-   bob_runtime bob_cognition bob_handler_replay bob_handler_live eio_main alcotest
+   bob_runtime bob_cognition bob_handler_replay bob_handler_live eio eio_main alcotest
    qcheck-core qcheck-alcotest yojson unix)
  (deps (glob_files fixtures/*.trace)))

@@ -1,4 +1,5 @@
 (lang dune 3.24)
+(implicit_transitive_deps false)
 (name bob)
 (generate_opam_files true)
 
