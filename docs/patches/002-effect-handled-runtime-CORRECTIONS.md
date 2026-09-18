@@ -233,3 +233,31 @@ which is byte-identical across the migration.
    silently dropped. Not currently reachable: `Control.decide`'s reflex path
    hardcodes `pitch = 0.`. Adding pitch to the vocabulary is the fix if a
    cognitive path ever proposes one.
+
+## C10. A capability functor without explicit dependencies denies nothing
+
+Found while designing the criterion 11 work, before implementing it.
+
+Patch 002 §5 and §11 say capability modules gate authority because "OCaml
+effects are not statically tracked, so a subsystem that must not move Bob is
+denied the Body capability rather than trusted not to perform Look_at."
+
+**That is not what a functor alone achieves.** A module parameterised over a
+signature with no `look_at` can still write
+`Bob_effect.Body.look_at Bob_effect.Body.Neutral` and it compiles, because
+dune's `implicit_transitive_deps` defaults to `true` and `bob_effect` is
+reachable through the dependency graph. Measured: the attack compiled and
+moved Bob.
+
+**Correction:** the enforcement has two halves.
+
+1. The capability signature omits the denied operation.
+2. `dune-project` sets `(implicit_transitive_deps false)`, and the
+   functorised library does not name `bob_effect` in its dune stanza.
+
+With (2) the same attack is `Unbound module "Bob_effect"`. Cost of the flag on
+this tree was four missing `eio` declarations in `test/dune`.
+
+This also requires the types to live somewhere a denied module may still see,
+hence `bob_domain`: cognition must be able to name `Brain.request` without
+being able to perform `Think`.

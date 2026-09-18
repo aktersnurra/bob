@@ -1983,7 +1983,17 @@ Ticked items were each verified by running something, not by reading code.
 - [ ] 10. Eio cancellation propagates through blocking effects. Tested against the
       **sim handler only**; see C8, which had to be fixed for this to work at all.
       No live transport has been cancelled. Partially met.
-- [ ] 11. Capability modules still gate authority. **NOT MET — see below.**
+- [x] 11. Capability modules gate authority for conversation and body
+      actuation. `bob_cognition` takes `CONVERSATION_CAPABILITIES` and
+      `bob_trace` takes `EMBODIED_CAPABILITIES`; neither library depends on
+      `bob_effect`, and `(implicit_transitive_deps false)` stops them reaching
+      it transitively. A compile-fail probe in `test/deny/` holds the boundary,
+      asserted by `./test/deny/check-leak.sh` and observed to fail when the
+      leak is reopened. **Limits:** a module may
+      still declare its own effect and perform it — that compiles, reaches no
+      handler, and raises `Effect.Unhandled` with zero actions recorded.
+      Perception is not gated: `PERCEPTION_CAPABILITIES` has no consumer until
+      the vision worker exists.
 - [x] 12. No generic effect framework: six effects; `Effect.perform` appears only
       in `bob_effect.ml` (six wrappers) plus the tracing re-perform C5 requires.
 
@@ -1997,22 +2007,20 @@ Plus:
 - [x] A test asserts a bare `Eio.Fiber.fork` raises `Effect.Unhandled` (C1).
 - [x] A test asserts the trace is non-empty (C5).
 
-### Criterion 11 is not met
+### Criterion 11, as met
 
-`lib/capability/bob_capability.ml` was rewritten into authority module
-signatures, and it compiles. But a repo-wide grep finds **no reference to
-`Bob_capability` from any code** — not from cognition, not from the replay
-driver, not from any test. It is linked and unused.
+Done in `docs/superpowers/plans/2026-09-18-bob-capability-authority.md`.
 
-So the claim "a subsystem denied the body capability cannot move Bob" is
-currently unexercised: nothing acquires capabilities through those modules, so
-nothing is gated by them. The mechanism is a placeholder awaiting a consumer.
+The guarantee is precisely: a subsystem cannot reach Bob's body through Bob's
+own effect vocabulary, and any attempt to route around it fails loudly at
+runtime rather than silently succeeding. It is not "cognition cannot perform
+effects" — OCaml effects are not statically tracked and that guarantee is not
+available.
 
-Meeting this properly needs cognition to take its capabilities as a module
-parameter (a functor or a record of the authority modules) so that a
-`Conversation_without_body` instantiation is *unable to name* `look_at`, plus
-a test that a body-denied subsystem cannot move Bob. That is real design work,
-not a tick.
+Two halves are required and both are load-bearing: the capability signature
+omits the denied operation, and `(implicit_transitive_deps false)` stops the
+functorised library naming `Bob_effect` directly. With only the first, the
+attack compiles and moves Bob — measured, not assumed.
 
 ## What this patch does NOT establish
 
