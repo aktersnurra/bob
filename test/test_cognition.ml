@@ -1,5 +1,7 @@
 open Bob_types
 
+module Cognition = Bob_cognition.Make (Bob_capability.Conversation)
+
 let at ms = Time.of_ms ms
 let ttl = Bob_world.default_ttl
 
@@ -24,7 +26,7 @@ let test_known_speaker_asks_a_remembered_question () =
   in
   Bob_runtime.run_sim sim (fun sw ->
       Bob_runtime.fork ~sw ~sim (fun () ->
-          Bob_cognition.handle_utterance
+          Cognition.handle_utterance
             ~config:Bob_control.default_config
             ~world:(world_with [])
             ~workspace:(ws_with [ utterance ])
@@ -40,7 +42,7 @@ let test_cognition_recalls_before_thinking () =
   let sim = Bob_handler_sim.create ~start:(at 1680.) ~brain_reply:"ok" () in
   Bob_runtime.run_sim sim (fun sw ->
       Bob_runtime.fork ~sw ~sim (fun () ->
-          Bob_cognition.handle_utterance ~config:Bob_control.default_config
+          Cognition.handle_utterance ~config:Bob_control.default_config
             ~world:(world_with []) ~workspace:(ws_with [ utterance ]) ~event:utterance));
   let rec order = function
     | Bob_handler_sim.Recalled _ :: rest ->
@@ -58,7 +60,7 @@ let test_invalid_brain_action_never_reaches_the_body () =
   in
   Bob_runtime.run_sim sim (fun sw ->
       Bob_runtime.fork ~sw ~sim (fun () ->
-          Bob_cognition.handle_utterance ~config:Bob_control.default_config
+          Cognition.handle_utterance ~config:Bob_control.default_config
             ~world:(world_with []) ~workspace:(ws_with [ utterance ]) ~event:utterance));
   let spoke = List.exists (function Bob_handler_sim.Spoke _ -> true | _ -> false)
       (Bob_handler_sim.actions sim) in
