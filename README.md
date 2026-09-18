@@ -52,3 +52,12 @@ hardware. A simulation never verifies a physical capability.
     docs/       design notes, findings, runbooks
 
 Runtime state lives in `bob-data/`, outside version control.
+
+## Checks
+
+### Capability boundary
+
+`./test/deny/check-leak.sh` asserts that a conversation-granted subsystem
+cannot name `Bob_effect`. It is not part of `dune test`: the probe must fail
+to compile, and a nested `dune` inside a dune rule cannot take the build lock.
+Run it directly, and in CI alongside `dune test`.

@@ -1,0 +1,12 @@
+; The leak probe. Its libraries mirror what a functorised subsystem may
+; depend on: bob_domain for types, bob_capability for authority, and NOT
+; bob_effect. leak.ml names Bob_effect anyway, so this must not compile.
+;
+; enabled_if keeps it out of the normal build - a target that is supposed to
+; fail cannot be part of `dune build`. check-leak.sh turns it on and asserts
+; the failure.
+(library
+ (name leakprobe)
+ (modules leak)
+ (libraries bob_types bob_domain bob_capability eio)
+ (enabled_if (= %{env:BOB_CHECK_LEAK=false} true)))
