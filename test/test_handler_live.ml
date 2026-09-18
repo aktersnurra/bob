@@ -25,7 +25,7 @@ let test_request_body_contains_the_projected_context () =
   in
   let body =
     Bob_handler_live.Brain.request_body c
-      Bob_effect.Brain.{ context = "CURRENT\nGustaf is speaking."; utterance = "where?";
+      Bob_domain.Brain.{ context = "CURRENT\nGustaf is speaking."; utterance = "where?";
                          speaker = None }
   in
   let contains h n =
@@ -41,13 +41,13 @@ let test_request_body_contains_the_projected_context () =
 let test_status_codes_map_to_typed_errors () =
   let m = Bob_handler_live.Brain.error_of_status in
   Alcotest.(check string) "429" "rate_limited"
-    (Bob_effect.Brain.error_to_string (m 429));
+    (Bob_domain.Brain.error_to_string (m 429));
   Alcotest.(check string) "503" "unavailable"
-    (Bob_effect.Brain.error_to_string (m 503));
+    (Bob_domain.Brain.error_to_string (m 503));
   Alcotest.(check string) "408" "timeout"
-    (Bob_effect.Brain.error_to_string (m 408));
+    (Bob_domain.Brain.error_to_string (m 408));
   Alcotest.(check string) "400" "invalid_response"
-    (Bob_effect.Brain.error_to_string (m 400))
+    (Bob_domain.Brain.error_to_string (m 400))
 
 let test_sse_line_parsing () =
   (* OpenRouter streams server-sent events; the handler must extract deltas

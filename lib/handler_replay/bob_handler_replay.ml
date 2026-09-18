@@ -11,18 +11,18 @@ exception Exhausted of string
 
 type recording = {
   times : Time.t list;
-  recalls : Bob_effect.Memory.item list list;
+  recalls : Bob_domain.Memory.item list list;
   thinks : string list;
-  identities : Bob_effect.Identity.result list;
+  identities : Bob_domain.Identity.result list;
 }
 
-type action = Looked of Bob_effect.Body.target | Spoke of string
+type action = Looked of Bob_domain.Body.target | Spoke of string
 
 type t = {
   mutable times : Time.t list;
-  mutable recalls : Bob_effect.Memory.item list list;
+  mutable recalls : Bob_domain.Memory.item list list;
   mutable thinks : string list;
-  mutable identities : Bob_effect.Identity.result list;
+  mutable identities : Bob_domain.Identity.result list;
   mutable actions : action list;
 }
 
@@ -69,8 +69,8 @@ let handle t _sw f =
                   let reply = pop "Think" r in
                   t.thinks <- !r;
                   let s = Eio.Stream.create (List.length (words reply) + 2) in
-                  List.iter (fun w -> Eio.Stream.add s (Bob_effect.Brain.Text w)) (words reply);
-                  Eio.Stream.add s (Bob_effect.Brain.Failed Bob_effect.Brain.Invalid_response);
+                  List.iter (fun w -> Eio.Stream.add s (Bob_domain.Brain.Text w)) (words reply);
+                  Eio.Stream.add s (Bob_domain.Brain.Failed Bob_domain.Brain.Invalid_response);
                   continue k s)
           | Bob_effect.Speak stream ->
               Some
@@ -78,8 +78,8 @@ let handle t _sw f =
                   let b = Buffer.create 64 in
                   let rec d () =
                     match Eio.Stream.take stream with
-                    | Bob_effect.Speech.End -> ()
-                    | Bob_effect.Speech.Say s -> Buffer.add_string b s; d ()
+                    | Bob_domain.Speech.End -> ()
+                    | Bob_domain.Speech.Say s -> Buffer.add_string b s; d ()
                   in
                   d ();
                   t.actions <- Spoke (Buffer.contents b) :: t.actions;

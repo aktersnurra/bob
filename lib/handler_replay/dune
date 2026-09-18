@@ -1,3 +1,3 @@
 (library
  (name bob_handler_replay)
- (libraries bob_types bob_effect eio eio_main))
+ (libraries bob_types bob_domain bob_effect eio eio_main))

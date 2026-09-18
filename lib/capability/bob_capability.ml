@@ -11,9 +11,9 @@
    `fake` constructors -- Bob_handler_sim now supersedes them for tests. *)
 
 module type CONVERSATION_CAPABILITIES = sig
-  val recall : Bob_effect.Memory.query -> Bob_effect.Memory.item list
-  val think : Bob_effect.Brain.request -> Bob_effect.Brain.response
-  val speak : Bob_effect.Speech.stream -> (unit, Bob_effect.Speech.error) result
+  val recall : Bob_domain.Memory.query -> Bob_domain.Memory.item list
+  val think : Bob_domain.Brain.request -> Bob_domain.Brain.response
+  val speak : Bob_domain.Speech.stream -> (unit, Bob_domain.Speech.error) result
 end
 
 module Conversation_with_body : CONVERSATION_CAPABILITIES = struct
@@ -26,7 +26,7 @@ end
    process-wide: its own module signature simply has no way to request
    Look_at. *)
 module type PERCEPTION_CAPABILITIES = sig
-  val identify : Bob_effect.Identity.request -> Bob_effect.Identity.result
+  val identify : Bob_domain.Identity.request -> Bob_domain.Identity.result
 end
 
 module Perception : PERCEPTION_CAPABILITIES = struct
@@ -34,7 +34,7 @@ module Perception : PERCEPTION_CAPABILITIES = struct
 end
 
 module type BODY_CAPABILITIES = sig
-  val look_at : Bob_effect.Body.target -> (unit, Bob_effect.Body.error) result
+  val look_at : Bob_domain.Body.target -> (unit, Bob_domain.Body.error) result
 end
 
 module Body_actuation : BODY_CAPABILITIES = struct

@@ -5,9 +5,9 @@ let at ms = Time.of_ms ms
 let recording =
   Bob_handler_replay.
     { times = [ at 0.; at 1680. ];
-      recalls = [ [ Bob_effect.Memory.{ text = "workshop"; source = "profile" } ] ];
+      recalls = [ [ Bob_domain.Memory.{ text = "workshop"; source = "profile" } ] ];
       thinks = [ "It is in the workshop." ];
-      identities = [ Bob_effect.Identity.Matched (Person_id.v "gustaf", Confidence.v 0.9) ] }
+      identities = [ Bob_domain.Identity.Matched (Person_id.v "gustaf", Confidence.v 0.9) ] }
 
 let test_recorded_time_is_returned_in_order () =
   let r = Bob_handler_replay.create recording in
@@ -25,14 +25,14 @@ let test_recorded_think_is_replayed () =
   let text =
     Bob_handler_replay.run r (fun () ->
         let s = Bob_effect.Brain.think
-            Bob_effect.Brain.{ context = ""; utterance = ""; speaker = None } in
+            Bob_domain.Brain.{ context = ""; utterance = ""; speaker = None } in
         let b = Buffer.create 64 in
         let rec d () =
           match Eio.Stream.take s with
-          | Bob_effect.Brain.Text t ->
+          | Bob_domain.Brain.Text t ->
               if Buffer.length b > 0 then Buffer.add_char b ' ';
               Buffer.add_string b t; d ()
-          | Bob_effect.Brain.Failed _ -> ()
+          | Bob_domain.Brain.Failed _ -> ()
         in
         d (); Buffer.contents b)
   in
@@ -47,17 +47,17 @@ let test_exhausted_recording_raises () =
      ignore
        (Bob_handler_replay.run r (fun () ->
             Bob_effect.Brain.think
-              Bob_effect.Brain.{ context = ""; utterance = ""; speaker = None }))
+              Bob_domain.Brain.{ context = ""; utterance = ""; speaker = None }))
    with Bob_handler_replay.Exhausted _ -> raised := true);
   Alcotest.(check bool) "raised Exhausted" true !raised
 
 let test_actions_are_asserted_against_expectations () =
   let r = Bob_handler_replay.create recording in
   Bob_handler_replay.run r (fun () ->
-      ignore (Bob_effect.Body.look_at Bob_effect.Body.Neutral))
+      ignore (Bob_effect.Body.look_at Bob_domain.Body.Neutral))
   |> ignore;
   match Bob_handler_replay.actions r with
-  | [ Bob_handler_replay.Looked Bob_effect.Body.Neutral ] -> ()
+  | [ Bob_handler_replay.Looked Bob_domain.Body.Neutral ] -> ()
   | l -> Alcotest.failf "expected one Looked, got %d" (List.length l)
 
 let () =

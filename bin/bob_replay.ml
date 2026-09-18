@@ -33,11 +33,11 @@ let run trace_path verbose =
       List.iter
         (fun a ->
           match a with
-          | Bob_handler_sim.Looked (Bob_effect.Body.Bearing yaw) ->
+          | Bob_handler_sim.Looked (Bob_domain.Body.Bearing yaw) ->
               Printf.printf "  look yaw=%.0f pitch=%.0f\n" (Angle.to_deg yaw) 0.
-          | Bob_handler_sim.Looked (Bob_effect.Body.Person _) -> print_endline "  look at person"
-          | Bob_handler_sim.Looked (Bob_effect.Body.Track _) -> print_endline "  look at track"
-          | Bob_handler_sim.Looked Bob_effect.Body.Neutral -> print_endline "  look neutral"
+          | Bob_handler_sim.Looked (Bob_domain.Body.Person _) -> print_endline "  look at person"
+          | Bob_handler_sim.Looked (Bob_domain.Body.Track _) -> print_endline "  look at track"
+          | Bob_handler_sim.Looked Bob_domain.Body.Neutral -> print_endline "  look neutral"
           | _ -> ())
         (Bob_handler_sim.actions sim);
       print_newline ();

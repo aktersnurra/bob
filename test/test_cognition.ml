@@ -19,7 +19,7 @@ let utterance =
 let test_known_speaker_asks_a_remembered_question () =
   let sim =
     Bob_handler_sim.create ~start:(at 1680.)
-      ~memory:[ Bob_effect.Memory.{ text = "keeps tools in the workshop"; source = "profile" } ]
+      ~memory:[ Bob_domain.Memory.{ text = "keeps tools in the workshop"; source = "profile" } ]
       ~brain_reply:"It is in the workshop." ()
   in
   Bob_runtime.run_sim sim (fun sw ->
@@ -74,8 +74,8 @@ let test_memory_policy_is_pure_and_testable () =
   Alcotest.(check bool) "at least one query" true (List.length qs > 0);
   Alcotest.(check bool) "query mentions the topic" true
     (List.exists
-       (fun (q : Bob_effect.Memory.query) ->
-         let t = q.Bob_effect.Memory.text in
+       (fun (q : Bob_domain.Memory.query) ->
+         let t = q.Bob_domain.Memory.text in
          String.length t > 0)
        qs)
 
@@ -91,7 +91,7 @@ let test_no_speaker_means_no_personal_recall () =
   in
   List.iter
     (fun q ->
-      Alcotest.(check bool) "no person key" true (q.Bob_effect.Memory.person = None))
+      Alcotest.(check bool) "no person key" true (q.Bob_domain.Memory.person = None))
     qs
 
 let () =

@@ -1,0 +1,3 @@
+(library
+ (name bob_domain)
+ (libraries bob_types eio))

@@ -23,8 +23,8 @@ module Brain = struct
 
   (* §9: Brain.request already contains the projected context. The handler
      only shapes it for the wire. *)
-  let request_body c (r : Bob_effect.Brain.request) =
-    let system = `String r.Bob_effect.Brain.context in
+  let request_body c (r : Bob_domain.Brain.request) =
+    let system = `String r.Bob_domain.Brain.context in
     Yojson.Safe.to_string
       (`Assoc
         [ ("model", `String c.model);
@@ -34,14 +34,14 @@ module Brain = struct
               [ `Assoc [ ("role", `String "system"); ("content", system) ];
                 `Assoc
                   [ ("role", `String "user");
-                    ("content", `String r.Bob_effect.Brain.utterance) ] ] ) ])
+                    ("content", `String r.Bob_domain.Brain.utterance) ] ] ) ])
 
   (* §19: operational failures become typed domain errors. *)
   let error_of_status = function
-    | 429 -> Bob_effect.Brain.Rate_limited
-    | 408 | 504 -> Bob_effect.Brain.Timeout
-    | s when s >= 500 -> Bob_effect.Brain.Unavailable
-    | _ -> Bob_effect.Brain.Invalid_response
+    | 429 -> Bob_domain.Brain.Rate_limited
+    | 408 | 504 -> Bob_domain.Brain.Timeout
+    | s when s >= 500 -> Bob_domain.Brain.Unavailable
+    | _ -> Bob_domain.Brain.Invalid_response
 
   (* OpenRouter streams server-sent events. Returns the content delta, or None
      for terminators, comments and anything unparseable. *)

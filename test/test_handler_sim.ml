@@ -17,24 +17,24 @@ let test_clock_is_deterministic_and_advances () =
 let test_recall_returns_configured_fixture () =
   let sim =
     Bob_handler_sim.create ~start:(at 0.)
-      ~memory:[ Bob_effect.Memory.{ text = "likes dinosaurs"; source = "profile" } ]
+      ~memory:[ Bob_domain.Memory.{ text = "likes dinosaurs"; source = "profile" } ]
       ()
   in
   let items =
     Bob_handler_sim.run sim (fun () ->
         Bob_effect.Memory.recall
-          Bob_effect.Memory.{ text = "dinosaur"; person = Some (Person_id.v "olle") })
+          Bob_domain.Memory.{ text = "dinosaur"; person = Some (Person_id.v "olle") })
   in
   Alcotest.(check int) "one" 1 (List.length items);
   Alcotest.(check string) "text" "likes dinosaurs"
-    (List.hd items).Bob_effect.Memory.text
+    (List.hd items).Bob_domain.Memory.text
 
 let test_think_streams_the_configured_reply () =
   let sim = Bob_handler_sim.create ~start:(at 0.) ~brain_reply:"It is on the desk." () in
   let text =
     Bob_handler_sim.run sim (fun () ->
         let s = Bob_effect.Brain.think
-            Bob_effect.Brain.{ context = "CURRENT"; utterance = "where"; speaker = None } in
+            Bob_domain.Brain.{ context = "CURRENT"; utterance = "where"; speaker = None } in
         Bob_handler_sim.drain_brain s)
   in
   Alcotest.(check string) "reply" "It is on the desk." text
@@ -48,12 +48,12 @@ let test_think_can_fail_midstream () =
   let got =
     Bob_handler_sim.run sim (fun () ->
         let s = Bob_effect.Brain.think
-            Bob_effect.Brain.{ context = ""; utterance = ""; speaker = None } in
+            Bob_domain.Brain.{ context = ""; utterance = ""; speaker = None } in
         let rec collect acc =
           match Eio.Stream.take s with
-          | Bob_effect.Brain.Text t -> collect (acc ^ t)
-          | Bob_effect.Brain.Failed e ->
-              `Failed (acc, Bob_effect.Brain.error_to_string e)
+          | Bob_domain.Brain.Text t -> collect (acc ^ t)
+          | Bob_domain.Brain.Failed e ->
+              `Failed (acc, Bob_domain.Brain.error_to_string e)
         in
         collect "")
   in
@@ -63,12 +63,12 @@ let test_think_can_fail_midstream () =
 let test_actions_are_recorded_in_order () =
   let sim = Bob_handler_sim.create ~start:(at 0.) () in
   Bob_handler_sim.run sim (fun () ->
-      ignore (Bob_effect.Body.look_at (Bob_effect.Body.Bearing (Angle.deg (-31.))));
-      ignore (Bob_effect.Body.look_at Bob_effect.Body.Neutral))
+      ignore (Bob_effect.Body.look_at (Bob_domain.Body.Bearing (Angle.deg (-31.))));
+      ignore (Bob_effect.Body.look_at Bob_domain.Body.Neutral))
   |> ignore;
   match Bob_handler_sim.actions sim with
-  | [ Bob_handler_sim.Looked (Bob_effect.Body.Bearing a);
-      Bob_handler_sim.Looked Bob_effect.Body.Neutral ] ->
+  | [ Bob_handler_sim.Looked (Bob_domain.Body.Bearing a);
+      Bob_handler_sim.Looked Bob_domain.Body.Neutral ] ->
       Alcotest.(check (float 0.1)) "bearing" (-31.) (Angle.to_deg a)
   | l -> Alcotest.failf "unexpected actions: %d" (List.length l)
 
@@ -78,9 +78,9 @@ let test_speak_records_chunks_incrementally () =
       (* Fill then perform: spawning a fiber here would break the handler
          chain (C1). Capacity 8 > 3 items, so no add blocks. *)
       let s = Eio.Stream.create 8 in
-      Eio.Stream.add s (Bob_effect.Speech.Say "Hej");
-      Eio.Stream.add s (Bob_effect.Speech.Say " Bob");
-      Eio.Stream.add s Bob_effect.Speech.End;
+      Eio.Stream.add s (Bob_domain.Speech.Say "Hej");
+      Eio.Stream.add s (Bob_domain.Speech.Say " Bob");
+      Eio.Stream.add s Bob_domain.Speech.End;
       ignore (Bob_effect.Speech.say s))
   |> ignore;
   match Bob_handler_sim.actions sim with
@@ -91,14 +91,14 @@ let test_speak_records_chunks_incrementally () =
 let test_identify_returns_configured_identity () =
   let sim =
     Bob_handler_sim.create ~start:(at 0.)
-      ~identity:(Bob_effect.Identity.Matched (Person_id.v "gustaf", Confidence.v 0.93)) ()
+      ~identity:(Bob_domain.Identity.Matched (Person_id.v "gustaf", Confidence.v 0.93)) ()
   in
   let r =
     Bob_handler_sim.run sim (fun () ->
-        Bob_effect.Identity.identify Bob_effect.Identity.{ track = Track_id.v 7 })
+        Bob_effect.Identity.identify Bob_domain.Identity.{ track = Track_id.v 7 })
   in
   match r with
-  | Bob_effect.Identity.Matched (p, _) ->
+  | Bob_domain.Identity.Matched (p, _) ->
       Alcotest.(check string) "gustaf" "gustaf" (Person_id.to_string p)
   | _ -> Alcotest.fail "expected a match"
 

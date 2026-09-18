@@ -11,7 +11,7 @@ module Memory_policy = struct
     (* The utterance itself is always a query; the topic adds a second when
        the workspace is maintaining one. *)
     List.map
-      (fun text -> Bob_effect.Memory.{ text; person })
+      (fun text -> Bob_domain.Memory.{ text; person })
       (utterance :: topic)
 end
 
@@ -30,7 +30,7 @@ let handle_utterance ~config ~world ~workspace ~event =
       let profile =
         match items with
         | [] -> None
-        | l -> Some (String.concat "\n" (List.map (fun i -> "- " ^ i.Bob_effect.Memory.text) l))
+        | l -> Some (String.concat "\n" (List.map (fun i -> "- " ^ i.Bob_domain.Memory.text) l))
       in
       let context =
         Bob_project.render ~now ~world ~workspace ~profile ~episodes:[]
@@ -38,7 +38,7 @@ let handle_utterance ~config ~world ~workspace ~event =
       (* 4. Effectful inference, streamed. *)
       let stream =
         Bob_effect.Brain.think
-          Bob_effect.Brain.
+          Bob_domain.Brain.
             { context; utterance = u.Bob_events.text; speaker = u.Bob_events.speaker }
       in
       (* 5. Collect the reply. A Failed chunk at any position ends it (C4). *)
@@ -46,11 +46,11 @@ let handle_utterance ~config ~world ~workspace ~event =
       let failed = ref None in
       let rec drain () =
         match Eio.Stream.take stream with
-        | Bob_effect.Brain.Text t ->
+        | Bob_domain.Brain.Text t ->
             if Buffer.length buf > 0 then Buffer.add_char buf ' ';
             Buffer.add_string buf t;
             drain ()
-        | Bob_effect.Brain.Failed e -> failed := Some e
+        | Bob_domain.Brain.Failed e -> failed := Some e
       in
       drain ();
       let reply = Buffer.contents buf in
@@ -63,8 +63,8 @@ let handle_utterance ~config ~world ~workspace ~event =
                intact. Capacity must exceed the item count or Stream.add
                blocks forever with no consumer. See correction C1. *)
             let out = Eio.Stream.create 4 in
-            Eio.Stream.add out (Bob_effect.Speech.Say approved);
-            Eio.Stream.add out Bob_effect.Speech.End;
+            Eio.Stream.add out (Bob_domain.Speech.Say approved);
+            Eio.Stream.add out Bob_domain.Speech.End;
             ignore (Bob_effect.Speech.say out)
         | Ok _ -> ())
   | _ -> ()

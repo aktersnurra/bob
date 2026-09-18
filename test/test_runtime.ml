@@ -36,7 +36,7 @@ let test_tracing_captures_effects () =
   let tr = Bob_runtime.new_trace () in
   Bob_runtime.run_sim ~trace:tr sim (fun _sw ->
       ignore (Bob_effect.Clock.now ());
-      ignore (Bob_effect.Body.look_at Bob_effect.Body.Neutral));
+      ignore (Bob_effect.Body.look_at Bob_domain.Body.Neutral));
   let names = Bob_runtime.trace_names tr in
   Alcotest.(check bool) "captured Now" true (List.mem "Now" names);
   Alcotest.(check bool) "captured Look_at" true (List.mem "Look_at" names)
@@ -63,7 +63,7 @@ let test_trace_does_not_record_prompt_text () =
   Bob_runtime.run_sim ~trace:tr sim (fun sw ->
       Bob_runtime.fork ~sw ~sim ~trace:tr (fun () ->
           let s = Bob_effect.Brain.think
-              Bob_effect.Brain.{ context = "SECRET CONTEXT"; utterance = "secret question";
+              Bob_domain.Brain.{ context = "SECRET CONTEXT"; utterance = "secret question";
                                  speaker = None } in
           ignore (Bob_handler_sim.drain_brain s)));
   let dumped = String.concat " " (Bob_runtime.trace_names tr) in

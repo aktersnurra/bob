@@ -13,7 +13,7 @@ let with_stub f =
           | Bob_effect.Now ->
               Some (fun (k : (a, _) continuation) -> continue k (Time.of_ms 42.))
           | Bob_effect.Recall _ ->
-              Some (fun k -> continue k [ Bob_effect.Memory.{ text = "likes dinosaurs"; source = "profile" } ])
+              Some (fun k -> continue k [ Bob_domain.Memory.{ text = "likes dinosaurs"; source = "profile" } ])
           | Bob_effect.Look_at _ -> Some (fun k -> continue k (Ok ()))
           | _ -> None) }
 
@@ -23,30 +23,30 @@ let test_now_goes_through_the_wrapper () =
 
 let test_recall_returns_items () =
   let items =
-    with_stub (fun () -> Bob_effect.Memory.recall Bob_effect.Memory.{ text = "screwdriver"; person = Some (Person_id.v "gustaf") })
+    with_stub (fun () -> Bob_effect.Memory.recall Bob_domain.Memory.{ text = "screwdriver"; person = Some (Person_id.v "gustaf") })
   in
   Alcotest.(check int) "one item" 1 (List.length items)
 
 let test_look_at_returns_ok () =
-  match with_stub (fun () -> Bob_effect.Body.look_at (Bob_effect.Body.Bearing (Angle.deg (-31.)))) with
+  match with_stub (fun () -> Bob_effect.Body.look_at (Bob_domain.Body.Bearing (Angle.deg (-31.)))) with
   | Ok () -> ()
   | Error _ -> Alcotest.fail "expected Ok"
 
 (* C4: a brain failure is a chunk INSIDE the stream, not a wrapper around it,
    because a stream already returned cannot fail with a result-typed error. *)
 let test_brain_failure_is_a_chunk () =
-  let c = Bob_effect.Brain.Failed Bob_effect.Brain.Rate_limited in
+  let c = Bob_domain.Brain.Failed Bob_domain.Brain.Rate_limited in
   match c with
-  | Bob_effect.Brain.Failed Bob_effect.Brain.Rate_limited -> ()
+  | Bob_domain.Brain.Failed Bob_domain.Brain.Rate_limited -> ()
   | _ -> Alcotest.fail "expected a Failed chunk"
 
 let test_error_names_are_total () =
   List.iter
     (fun e ->
       Alcotest.(check bool) "non-empty name" true
-        (String.length (Bob_effect.Brain.error_to_string e) > 0))
-    [ Bob_effect.Brain.Timeout; Bob_effect.Brain.Unavailable;
-      Bob_effect.Brain.Rate_limited; Bob_effect.Brain.Invalid_response ]
+        (String.length (Bob_domain.Brain.error_to_string e) > 0))
+    [ Bob_domain.Brain.Timeout; Bob_domain.Brain.Unavailable;
+      Bob_domain.Brain.Rate_limited; Bob_domain.Brain.Invalid_response ]
 
 (* §6: cognition must never see Effect.perform. The wrappers are the API. *)
 let test_wrappers_exist_for_every_effect () =

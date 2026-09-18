@@ -13,7 +13,7 @@ let test_timeout_cancels_a_slow_think () =
       try
         Eio.Time.with_timeout_exn clock 0.08 (fun () ->
             let s = Bob_effect.Brain.think
-                Bob_effect.Brain.{ context = ""; utterance = ""; speaker = None } in
+                Bob_domain.Brain.{ context = ""; utterance = ""; speaker = None } in
             ignore (Bob_handler_sim.drain_brain s))
       with Eio.Time.Timeout -> cancelled := true);
   Alcotest.(check bool) "cancelled" true !cancelled
@@ -25,9 +25,9 @@ let test_barge_in_stops_speech_partway () =
       try
         Eio.Time.with_timeout_exn clock 0.08 (fun () ->
             let s = Eio.Stream.create 16 in
-            List.iter (fun w -> Eio.Stream.add s (Bob_effect.Speech.Say w))
+            List.iter (fun w -> Eio.Stream.add s (Bob_domain.Speech.Say w))
               [ "one"; "two"; "three"; "four"; "five" ];
-            Eio.Stream.add s Bob_effect.Speech.End;
+            Eio.Stream.add s Bob_domain.Speech.End;
             ignore (Bob_effect.Speech.say s))
       with Eio.Time.Timeout -> ());
   (* Whatever was spoken must be shorter than the whole utterance. *)

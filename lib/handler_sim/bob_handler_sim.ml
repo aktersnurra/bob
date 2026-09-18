@@ -5,7 +5,7 @@ open Effect.Deep
    did so scenario tests (§21) assert on actions rather than internals. *)
 
 type action =
-  | Looked of Bob_effect.Body.target
+  | Looked of Bob_domain.Body.target
   | Spoke of string
   | Recalled of string
   | Thought of string
@@ -14,10 +14,10 @@ type action =
 type t = {
   mutable now : Time.t;
   mutable actions : action list; (* reverse order *)
-  memory : Bob_effect.Memory.item list;
+  memory : Bob_domain.Memory.item list;
   brain_reply : string;
   brain_fails_after : int option;
-  identity : Bob_effect.Identity.result;
+  identity : Bob_domain.Identity.result;
   (* Seconds to pause between chunks. 0 means never sleep, so the common
      tests stay fast. Task 8 uses a non-zero value to exercise cancellation;
      the field exists from the start so `handle`'s signature never changes. *)
@@ -25,7 +25,7 @@ type t = {
 }
 
 let create ~start ?(memory = []) ?(brain_reply = "Jag vet inte.")
-    ?brain_fails_after ?(identity = Bob_effect.Identity.Unknown)
+    ?brain_fails_after ?(identity = Bob_domain.Identity.Unknown)
     ?(chunk_delay = 0.) () =
   { now = start; actions = []; memory; brain_reply; brain_fails_after; identity;
     chunk_delay }
@@ -38,11 +38,11 @@ let record t a = t.actions <- a :: t.actions
    simulated as one blob. *)
 let words s = String.split_on_char ' ' s |> List.filter (fun w -> w <> "")
 
-let drain_brain (s : Bob_effect.Brain.response) =
+let drain_brain (s : Bob_domain.Brain.response) =
   let rec go acc =
     match Eio.Stream.take s with
-    | Bob_effect.Brain.Text t -> go (if acc = "" then t else acc ^ " " ^ t)
-    | Bob_effect.Brain.Failed _ -> acc
+    | Bob_domain.Brain.Text t -> go (if acc = "" then t else acc ^ " " ^ t)
+    | Bob_domain.Brain.Failed _ -> acc
   in
   go ""
 
@@ -67,12 +67,12 @@ let handle t ?clock sw f =
           | Bob_effect.Recall q ->
               Some
                 (fun (k : (a, _) continuation) ->
-                  record t (Recalled q.Bob_effect.Memory.text);
+                  record t (Recalled q.Bob_domain.Memory.text);
                   continue k t.memory)
           | Bob_effect.Think r ->
               Some
                 (fun (k : (a, _) continuation) ->
-                  record t (Thought r.Bob_effect.Brain.utterance);
+                  record t (Thought r.Bob_domain.Brain.utterance);
                   let stream = Eio.Stream.create 16 in
                   (* §10: produce concurrently so the consumer may start
                      before generation finishes. *)
@@ -85,15 +85,15 @@ let handle t ?clock sw f =
                           | Some n when i >= n ->
                               if i = n then
                                 Eio.Stream.add stream
-                                  (Bob_effect.Brain.Failed
-                                     Bob_effect.Brain.Rate_limited)
-                          | _ -> Eio.Stream.add stream (Bob_effect.Brain.Text w))
+                                  (Bob_domain.Brain.Failed
+                                     Bob_domain.Brain.Rate_limited)
+                          | _ -> Eio.Stream.add stream (Bob_domain.Brain.Text w))
                         ws;
                       match t.brain_fails_after with
                       | Some n when n < List.length ws -> ()
                       | _ ->
                           Eio.Stream.add stream
-                            (Bob_effect.Brain.Failed Bob_effect.Brain.Invalid_response));
+                            (Bob_domain.Brain.Failed Bob_domain.Brain.Invalid_response));
                   continue k stream)
           | Bob_effect.Speak stream ->
               Some
@@ -122,8 +122,8 @@ let handle t ?clock sw f =
                   in
                   let rec drain () =
                     match Eio.Stream.take stream with
-                    | Bob_effect.Speech.End -> ()
-                    | Bob_effect.Speech.Say s ->
+                    | Bob_domain.Speech.End -> ()
+                    | Bob_domain.Speech.Say s ->
                         pace t clock;
                         Buffer.add_string buf s;
                         commit ();
@@ -144,7 +144,7 @@ let handle t ?clock sw f =
           | Bob_effect.Identify r ->
               Some
                 (fun (k : (a, _) continuation) ->
-                  record t (Identified r.Bob_effect.Identity.track);
+                  record t (Identified r.Bob_domain.Identity.track);
                   continue k t.identity)
           | _ -> None) }
 

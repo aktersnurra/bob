@@ -119,9 +119,9 @@ let replay ?(config = Bob_control.default_config)
     match d with
     | Bob_control.Look_at_angle p -> (
         obs := Bob_obs.mark !obs ~at:now Bob_obs.Movement_start;
-        match Bob_effect.Body.look_at (Bob_effect.Body.Bearing p.yaw) with
+        match Bob_effect.Body.look_at (Bob_domain.Body.Bearing p.yaw) with
         | Ok () -> ()
-        | Error e -> err ("body: " ^ Bob_effect.Body.error_to_string e))
+        | Error e -> err ("body: " ^ Bob_domain.Body.error_to_string e))
     | Bob_control.Set_attention t -> workspace := Bob_workspace.set_attention !workspace (Some t)
     | Bob_control.Interrupt_speech -> ()
     | Bob_control.Recognise _ -> ()
@@ -132,20 +132,20 @@ let replay ?(config = Bob_control.default_config)
           match b.speaker with
           | Some person ->
               Bob_effect.Memory.recall
-                Bob_effect.Memory.{ text = b.utterance; person = Some person }
+                Bob_domain.Memory.{ text = b.utterance; person = Some person }
           | None -> []
         in
         let profile =
           match items with
           | [] -> None
-          | l -> Some (String.concat "\n" (List.map (fun i -> "- " ^ i.Bob_effect.Memory.text) l))
+          | l -> Some (String.concat "\n" (List.map (fun i -> "- " ^ i.Bob_domain.Memory.text) l))
         in
         obs := Bob_obs.mark !obs ~at:now Bob_obs.Memory_retrieved;
         let context =
           Bob_project.render ~now ~world:!world ~workspace:!workspace ~profile ~episodes:[]
         in
         let req =
-          Bob_effect.Brain.
+          Bob_domain.Brain.
             { context; utterance = b.utterance; speaker = b.speaker }
         in
         let stream = Bob_effect.Brain.think req in
@@ -154,17 +154,17 @@ let replay ?(config = Bob_control.default_config)
         let failed = ref None in
         let rec drain () =
           match Eio.Stream.take stream with
-          | Bob_effect.Brain.Text t ->
+          | Bob_domain.Brain.Text t ->
               if Buffer.length buf > 0 then Buffer.add_char buf ' ';
               Buffer.add_string buf t;
               drain ()
-          | Bob_effect.Brain.Failed e -> failed := Some e
+          | Bob_domain.Brain.Failed e -> failed := Some e
         in
         drain ();
         let reply = Buffer.contents buf in
         if reply = "" then (
           match !failed with
-          | Some e -> err ("brain: " ^ Bob_effect.Brain.error_to_string e)
+          | Some e -> err ("brain: " ^ Bob_domain.Brain.error_to_string e)
           | None -> ())
         else (
           match Bob_control.validate ~config (Bob_control.Say reply) with
@@ -172,15 +172,15 @@ let replay ?(config = Bob_control.default_config)
           | Ok (Bob_control.Say s) -> (
               obs := Bob_obs.mark !obs ~at:now Bob_obs.Tts_first_sample;
               let out = Eio.Stream.create 4 in
-              Eio.Stream.add out (Bob_effect.Speech.Say s);
-              Eio.Stream.add out Bob_effect.Speech.End;
+              Eio.Stream.add out (Bob_domain.Speech.Say s);
+              Eio.Stream.add out Bob_domain.Speech.End;
               match Bob_effect.Speech.say out with
               | Ok () -> obs := Bob_obs.mark !obs ~at:now Bob_obs.First_audio
-              | Error e -> err ("tts: " ^ Bob_effect.Speech.error_to_string e))
+              | Error e -> err ("tts: " ^ Bob_domain.Speech.error_to_string e))
           | Ok (Bob_control.Look_at p) -> (
-              match Bob_effect.Body.look_at (Bob_effect.Body.Bearing p.yaw) with
+              match Bob_effect.Body.look_at (Bob_domain.Body.Bearing p.yaw) with
               | Ok () -> ()
-              | Error e -> err ("body: " ^ Bob_effect.Body.error_to_string e))
+              | Error e -> err ("body: " ^ Bob_domain.Body.error_to_string e))
           | Ok (Bob_control.Ask_name _) -> ()
           | Ok (Bob_control.Recall_more _) -> ()
           | Ok Bob_control.Noop -> ())
