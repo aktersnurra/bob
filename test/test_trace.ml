@@ -1,5 +1,7 @@
 open Bob_types
 
+module Replay = Bob_trace.Make (Bob_capability.Embodied)
+
 let at ms = Time.of_ms ms
 let fixture = "fixtures/screwdriver.trace"
 
@@ -43,7 +45,7 @@ let run_replay ?brain_reply ?brain_fails_after evs =
     Bob_handler_sim.create ~start:(at 0.) ?brain_reply ?brain_fails_after ()
   in
   let r = ref None in
-  Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+  Bob_runtime.run_sim sim (fun _sw -> r := Some (Replay.replay evs));
   (sim, Option.get !r)
 
 (* The end-to-end Phase 0 acceptance check. *)

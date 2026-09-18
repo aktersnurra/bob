@@ -2,4 +2,4 @@
  (name bob_replay)
  (public_name bob-replay)
  (libraries bob_types bob_events bob_world bob_workspace bob_control bob_memory
-   bob_project bob_domain bob_effect bob_obs bob_trace bob_handler_sim bob_runtime cmdliner))
+   bob_project bob_domain bob_capability bob_obs bob_trace bob_handler_sim bob_runtime cmdliner))

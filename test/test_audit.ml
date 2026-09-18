@@ -4,6 +4,8 @@
 
 open Bob_types
 
+module Replay = Bob_trace.Make (Bob_capability.Embodied)
+
 let at ms = Time.of_ms ms
 let ttl = Bob_world.default_ttl
 let ccfg = Bob_control.default_config
@@ -159,7 +161,7 @@ let test_first_speech_does_not_self_interrupt () =
         { at = at 0.; doa = Some (Angle.deg (-31.)); confidence = Confidence.v 0.8 } ]
   in
   let r = ref None in
-  Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+  Bob_runtime.run_sim sim (fun _sw -> r := Some (Replay.replay evs));
   Alcotest.(check int) "no spurious interrupt" 0 (count_interrupts (Option.get !r))
 
 (* 10. But a genuine barge-in MUST still interrupt: speech starts while Bob is
@@ -175,7 +177,7 @@ let test_real_barge_in_still_interrupts () =
         { at = at 500.; doa = Some (Angle.deg 40.); confidence = Confidence.v 0.9 } ]
   in
   let r = ref None in
-  Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+  Bob_runtime.run_sim sim (fun _sw -> r := Some (Replay.replay evs));
   Alcotest.(check int) "second onset interrupts" 1 (count_interrupts (Option.get !r))
 
 let () =

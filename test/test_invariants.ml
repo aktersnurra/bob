@@ -1,5 +1,7 @@
 open Bob_types
 
+module Replay = Bob_trace.Make (Bob_capability.Embodied)
+
 let at ms = Time.of_ms ms
 let ttl = Bob_world.default_ttl
 let ccfg = Bob_control.default_config
@@ -87,7 +89,7 @@ let test_every_brain_action_passes_through_validate () =
           speaker_track = None; language = Some "sv" } ]
   in
   let r = ref None in
-  Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+  Bob_runtime.run_sim sim (fun _sw -> r := Some (Replay.replay evs));
   let r = Option.get !r in
   let spoken =
     List.filter (function Bob_handler_sim.Spoke _ -> true | _ -> false)

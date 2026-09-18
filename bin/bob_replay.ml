@@ -1,5 +1,7 @@
 open Bob_types
 
+module Replay = Bob_trace.Make (Bob_capability.Embodied)
+
 let run trace_path verbose =
   match Bob_trace.parse_file trace_path with
   | Error m ->
@@ -18,7 +20,7 @@ let run trace_path verbose =
           ~brain_reply:"Jag vet inte. Ska vi ta reda på det?" ()
       in
       let r = ref None in
-      Bob_runtime.run_sim sim (fun _sw -> r := Some (Bob_trace.replay evs));
+      Bob_runtime.run_sim sim (fun _sw -> r := Some (Replay.replay evs));
       let r = Option.get !r in
 
       print_endline "DECISIONS";

@@ -104,119 +104,125 @@ type result = {
   errors : string list;
 }
 
-let replay ?(config = Bob_control.default_config)
-    ?(ttl = Bob_world.default_ttl)
-    ?(ws_config = Bob_workspace.default_config) evs =
-  let world = ref (Bob_world.empty ~ttl) in
-  let workspace = ref (Bob_workspace.empty ~config:ws_config) in
-  let obs = ref (Bob_obs.empty ()) in
-  let decisions = ref [] in
-  let errors = ref [] in
-  let err m = errors := m :: !errors in
+(* The replay driver drives the body: Look_at_angle is the reflex path, so
+   this takes the embodied grant rather than the conversational one. Parsing
+   stays outside the functor - bin/bob_replay.ml parses before it has a
+   handler stack to run under. *)
+module Make (C : Bob_capability.EMBODIED_CAPABILITIES) = struct
+  let replay ?(config = Bob_control.default_config)
+      ?(ttl = Bob_world.default_ttl)
+      ?(ws_config = Bob_workspace.default_config) evs =
+    let world = ref (Bob_world.empty ~ttl) in
+    let workspace = ref (Bob_workspace.empty ~config:ws_config) in
+    let obs = ref (Bob_obs.empty ()) in
+    let decisions = ref [] in
+    let errors = ref [] in
+    let err m = errors := m :: !errors in
 
-  let execute ~now (d : Bob_control.decision) =
-    decisions := (now, d) :: !decisions;
-    match d with
-    | Bob_control.Look_at_angle p -> (
-        obs := Bob_obs.mark !obs ~at:now Bob_obs.Movement_start;
-        match Bob_effect.Body.look_at (Bob_domain.Body.Bearing p.yaw) with
-        | Ok () -> ()
-        | Error e -> err ("body: " ^ Bob_domain.Body.error_to_string e))
-    | Bob_control.Set_attention t -> workspace := Bob_workspace.set_attention !workspace (Some t)
-    | Bob_control.Interrupt_speech -> ()
-    | Bob_control.Recognise _ -> ()
-    | Bob_control.Preload_profile _ -> ()
-    | Bob_control.Invoke_brain b ->
-        obs := Bob_obs.mark !obs ~at:now Bob_obs.Llm_request;
-        let items =
-          match b.speaker with
-          | Some person ->
-              Bob_effect.Memory.recall
-                Bob_domain.Memory.{ text = b.utterance; person = Some person }
-          | None -> []
-        in
-        let profile =
-          match items with
-          | [] -> None
-          | l -> Some (String.concat "\n" (List.map (fun i -> "- " ^ i.Bob_domain.Memory.text) l))
-        in
-        obs := Bob_obs.mark !obs ~at:now Bob_obs.Memory_retrieved;
-        let context =
-          Bob_project.render ~now ~world:!world ~workspace:!workspace ~profile ~episodes:[]
-        in
-        let req =
-          Bob_domain.Brain.
-            { context; utterance = b.utterance; speaker = b.speaker }
-        in
-        let stream = Bob_effect.Brain.think req in
-        obs := Bob_obs.mark !obs ~at:now Bob_obs.Llm_first_token;
-        let buf = Buffer.create 128 in
-        let failed = ref None in
-        let rec drain () =
-          match Eio.Stream.take stream with
-          | Bob_domain.Brain.Text t ->
-              if Buffer.length buf > 0 then Buffer.add_char buf ' ';
-              Buffer.add_string buf t;
-              drain ()
-          | Bob_domain.Brain.Failed e -> failed := Some e
-        in
-        drain ();
-        let reply = Buffer.contents buf in
-        if reply = "" then (
-          match !failed with
-          | Some e -> err ("brain: " ^ Bob_domain.Brain.error_to_string e)
-          | None -> ())
-        else (
-          match Bob_control.validate ~config (Bob_control.Say reply) with
-          | Error m -> err ("rejected action: " ^ m)
-          | Ok (Bob_control.Say s) -> (
-              obs := Bob_obs.mark !obs ~at:now Bob_obs.Tts_first_sample;
-              let out = Eio.Stream.create 4 in
-              Eio.Stream.add out (Bob_domain.Speech.Say s);
-              Eio.Stream.add out Bob_domain.Speech.End;
-              match Bob_effect.Speech.say out with
-              | Ok () -> obs := Bob_obs.mark !obs ~at:now Bob_obs.First_audio
-              | Error e -> err ("tts: " ^ Bob_domain.Speech.error_to_string e))
-          | Ok (Bob_control.Look_at p) -> (
-              match Bob_effect.Body.look_at (Bob_domain.Body.Bearing p.yaw) with
-              | Ok () -> ()
-              | Error e -> err ("body: " ^ Bob_domain.Body.error_to_string e))
-          | Ok (Bob_control.Ask_name _) -> ()
-          | Ok (Bob_control.Recall_more _) -> ()
-          | Ok Bob_control.Noop -> ())
-  in
+    let execute ~now (d : Bob_control.decision) =
+      decisions := (now, d) :: !decisions;
+      match d with
+      | Bob_control.Look_at_angle p -> (
+          obs := Bob_obs.mark !obs ~at:now Bob_obs.Movement_start;
+          match C.look_at (Bob_domain.Body.Bearing p.yaw) with
+          | Ok () -> ()
+          | Error e -> err ("body: " ^ Bob_domain.Body.error_to_string e))
+      | Bob_control.Set_attention t -> workspace := Bob_workspace.set_attention !workspace (Some t)
+      | Bob_control.Interrupt_speech -> ()
+      | Bob_control.Recognise _ -> ()
+      | Bob_control.Preload_profile _ -> ()
+      | Bob_control.Invoke_brain b ->
+          obs := Bob_obs.mark !obs ~at:now Bob_obs.Llm_request;
+          let items =
+            match b.speaker with
+            | Some person ->
+                C.recall
+                  Bob_domain.Memory.{ text = b.utterance; person = Some person }
+            | None -> []
+          in
+          let profile =
+            match items with
+            | [] -> None
+            | l -> Some (String.concat "\n" (List.map (fun i -> "- " ^ i.Bob_domain.Memory.text) l))
+          in
+          obs := Bob_obs.mark !obs ~at:now Bob_obs.Memory_retrieved;
+          let context =
+            Bob_project.render ~now ~world:!world ~workspace:!workspace ~profile ~episodes:[]
+          in
+          let req =
+            Bob_domain.Brain.
+              { context; utterance = b.utterance; speaker = b.speaker }
+          in
+          let stream = C.think req in
+          obs := Bob_obs.mark !obs ~at:now Bob_obs.Llm_first_token;
+          let buf = Buffer.create 128 in
+          let failed = ref None in
+          let rec drain () =
+            match Eio.Stream.take stream with
+            | Bob_domain.Brain.Text t ->
+                if Buffer.length buf > 0 then Buffer.add_char buf ' ';
+                Buffer.add_string buf t;
+                drain ()
+            | Bob_domain.Brain.Failed e -> failed := Some e
+          in
+          drain ();
+          let reply = Buffer.contents buf in
+          if reply = "" then (
+            match !failed with
+            | Some e -> err ("brain: " ^ Bob_domain.Brain.error_to_string e)
+            | None -> ())
+          else (
+            match Bob_control.validate ~config (Bob_control.Say reply) with
+            | Error m -> err ("rejected action: " ^ m)
+            | Ok (Bob_control.Say s) -> (
+                obs := Bob_obs.mark !obs ~at:now Bob_obs.Tts_first_sample;
+                let out = Eio.Stream.create 4 in
+                Eio.Stream.add out (Bob_domain.Speech.Say s);
+                Eio.Stream.add out Bob_domain.Speech.End;
+                match C.speak out with
+                | Ok () -> obs := Bob_obs.mark !obs ~at:now Bob_obs.First_audio
+                | Error e -> err ("tts: " ^ Bob_domain.Speech.error_to_string e))
+            | Ok (Bob_control.Look_at p) -> (
+                match C.look_at (Bob_domain.Body.Bearing p.yaw) with
+                | Ok () -> ()
+                | Error e -> err ("body: " ^ Bob_domain.Body.error_to_string e))
+            | Ok (Bob_control.Ask_name _) -> ()
+            | Ok (Bob_control.Recall_more _) -> ()
+            | Ok Bob_control.Noop -> ())
+    in
 
-  List.iter
-    (fun e ->
-      let now = Bob_events.at e in
-      (* Observability marks that come straight from the event stream. *)
-      (match e with
-      | Bob_events.Speech_started _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Speech_start
-      | Bob_events.Speech_ended _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Speech_end
-      | Bob_events.Speech_direction _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Doa_update
-      | Bob_events.Partial_utterance _ ->
-          obs := Bob_obs.mark !obs ~at:now Bob_obs.Stt_first_partial
-      | Bob_events.Utterance _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Stt_final
-      | _ -> ());
-      (* Reduce, decide, execute. This is SPEC section 33's direction.
+    List.iter
+      (fun e ->
+        let now = Bob_events.at e in
+        (* Observability marks that come straight from the event stream. *)
+        (match e with
+        | Bob_events.Speech_started _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Speech_start
+        | Bob_events.Speech_ended _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Speech_end
+        | Bob_events.Speech_direction _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Doa_update
+        | Bob_events.Partial_utterance _ ->
+            obs := Bob_obs.mark !obs ~at:now Bob_obs.Stt_first_partial
+        | Bob_events.Utterance _ -> obs := Bob_obs.mark !obs ~at:now Bob_obs.Stt_final
+        | _ -> ());
+        (* Reduce, decide, execute. This is SPEC section 33's direction.
 
-         The controller decides against the world as it was WHEN THE EVENT
-         ARRIVED, not after the event has been folded in. "Was Bob speaking
-         when this speech started?" is a question about the prior state; asking
-         it of the post-apply world makes Speech_started interrupt itself. *)
-      let world_before = !world in
-      world := Bob_world.apply !world e;
-      workspace := Bob_workspace.apply !workspace e;
-      let ds =
-        Bob_control.decide ~config ~now ~world:world_before ~workspace:!workspace e
-      in
-      List.iter (execute ~now) ds;
-      world := Bob_world.expire ~now !world;
-      workspace := Bob_workspace.tick ~now !workspace)
-    evs;
+           The controller decides against the world as it was WHEN THE EVENT
+           ARRIVED, not after the event has been folded in. "Was Bob speaking
+           when this speech started?" is a question about the prior state; asking
+           it of the post-apply world makes Speech_started interrupt itself. *)
+        let world_before = !world in
+        world := Bob_world.apply !world e;
+        workspace := Bob_workspace.apply !workspace e;
+        let ds =
+          Bob_control.decide ~config ~now ~world:world_before ~workspace:!workspace e
+        in
+        List.iter (execute ~now) ds;
+        world := Bob_world.expire ~now !world;
+        workspace := Bob_workspace.tick ~now !workspace)
+      evs;
 
-  { world = !world;
-    workspace = !workspace;
-    obs = !obs;
-    decisions = List.rev !decisions;
-    errors = List.rev !errors }
+    { world = !world;
+      workspace = !workspace;
+      obs = !obs;
+      decisions = List.rev !decisions;
+      errors = List.rev !errors }
+end
