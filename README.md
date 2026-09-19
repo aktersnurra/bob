@@ -11,8 +11,15 @@ See [SPEC.md](SPEC.md) for the authoritative design.
 
 ## Status
 
-**Phase 0 complete.** Cognitive core built and tested on fakes. 101 tests
-across 12 suites. No hardware ordered; no hardware code written.
+**Phase 0 complete**, plus an effect-handled runtime (Patch 002). The
+cognitive core is built and tested on fakes: 142 tests across 20 suites. No
+hardware ordered; no hardware code written.
+
+Domain effects (`now`, `recall`, `think`, `say`, `look_at`, `identify`) are
+OCaml 5 effects with swappable handlers — deterministic sim, trace replay, and
+a live handler that is deliberately compile-only until credentials and
+hardware exist. Subsystems take their authority as a module parameter, so a
+conversation-granted module cannot move Bob.
 
 Try it:
 
@@ -38,6 +45,10 @@ hardware. A simulation never verifies a physical capability.
 - No claim about recognition accuracy, Swedish or English quality, or
   discriminating between siblings.
 - Nothing moved. No audio was captured or played. No model was called.
+- No live handler has ever run. `lib/handler_live/` builds request bodies and
+  parses SSE lines; it has no transport, by choice.
+- Cancellation is verified against the sim handler only. No live transport has
+  been cancelled mid-stream.
 
 - [Spec deltas and verified findings](docs/2026-09-15-spec-deltas-and-findings.md)
 
